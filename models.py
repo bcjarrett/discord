@@ -21,7 +21,8 @@ class Game(BaseModel):
     added_by = peewee.CharField()
     added_on = peewee.DateTimeField(default=datetime.datetime.now)
     played = peewee.BooleanField(default=False)
-    url = peewee.CharField(null=False)
+    url = peewee.CharField(null=True)
+    steam_id = peewee.BigIntegerField(null=True)
 
 
 db.connect()
