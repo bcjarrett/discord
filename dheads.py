@@ -15,7 +15,7 @@ conf = Config()
 GUILD = conf['DHEADS']
 
 bot = commands.Bot(command_prefix='?',
-                   description='Keeps track of games to play and occasionally p00ps',
+                   description='Keeps track of games to play and occasionally p00ps. https://github.com/bcjarrett/discord',
                    intents=discord.Intents.all())
 
 headers = {
