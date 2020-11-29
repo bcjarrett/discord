@@ -2,7 +2,7 @@ import datetime
 
 import peewee
 
-DATABASE = 'test4.db'
+DATABASE = 'dheads.db'
 
 db = peewee.SqliteDatabase(DATABASE)
 
