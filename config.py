@@ -15,3 +15,6 @@ class Config:
             return self.json_secrets[item]
         except KeyError:
             raise KeyError(f'{item} is not in the secrets file')
+
+
+conf = Config()

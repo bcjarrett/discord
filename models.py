@@ -2,7 +2,10 @@ import datetime
 
 import peewee
 
-DATABASE = 'dheads.db'
+from util import plural
+from config import conf
+
+DATABASE = conf['DB_NAME']
 
 db = peewee.SqliteDatabase(DATABASE)
 
@@ -37,8 +40,6 @@ class Game(BaseModel):
 
     @property
     def recent_activity(self):
-        def plural(in_num):
-            return '' if in_num == 1 else 's'
 
         date = self.added_on if not self.started else self.started_on
         if not self.started:
@@ -53,6 +54,18 @@ class Game(BaseModel):
         date_diff_text = f' ({flag} {(datetime.datetime.now() - date).days} day' \
                          f'{plural((datetime.datetime.now() - date).days)} ago)' if date_diff else ''
         return date_diff_text
+
+    @staticmethod
+    def get_game(in_str):
+        in_str = in_str.lower()
+        try:
+            return 1, Game.get(Game.name == in_str, Game.finished == False)
+        except Game.DoesNotExist:
+            game = list(Game.select().where(Game.name.contains(in_str), Game.finished == False))
+            if len(game) > 1:
+                return 0, f'More than one game returned for "{in_str}": {[i.name for i in game]}'
+            if len(game) == 1:
+                return 1, game[0]
 
 
 db.connect()
