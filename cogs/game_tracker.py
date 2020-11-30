@@ -59,7 +59,7 @@ class GameTrackerCog(commands.Cog, name='Game Tracker'):
     @commands.command(description='Add a game to the list')
     async def add(self, ctx, *args):
         """
-        Adds a game to the list
+        Adds a new game to the list
         URL as optional parameter, searches steam if no URL is provided
 
             add Castle Crashers
