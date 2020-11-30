@@ -22,6 +22,8 @@ async def search_game(title, number_results=10, language_code='en'):
         async with session.get(google_url, headers=headers) as r:
             if r.status == 200:
                 text = await r.read()
+            else:
+                text = ''
 
         soup = BeautifulSoup(text, 'html.parser')
         result_block = soup.find_all('div', attrs={'class': 'g'})
