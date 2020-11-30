@@ -54,7 +54,7 @@ async def game_name_from_steam_id(steam_id):
         return None
 
 
-class GameTrackerCog(commands.Cog):
+class GameTrackerCog(commands.Cog, name='Game Tracker'):
 
     @commands.command(description='Add a game to the list')
     async def add(self, ctx, *args):

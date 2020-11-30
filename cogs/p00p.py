@@ -21,7 +21,7 @@ class PoopCog(commands.Cog, name='p00p bot core'):
 
     @commands.command(description='Display the current p00p count')
     async def count(self, ctx):
-        """Resets the p00p count"""
+        """Displays the current p00p count"""
         count = TextCount.get(text='p00p').counter
         return await ctx.send(f'Currently at {count} p00p{plural(count)}')
 
