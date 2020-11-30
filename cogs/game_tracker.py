@@ -77,7 +77,8 @@ class GameTrackerCog(commands.Cog, name='Game Tracker'):
         name = ' '.join(game_in)
         steam_id = None
         if not url:
-            url = await search_game(name)
+            async with ctx.typing():
+                url = await search_game(name)
         if url and not name:
             # Search for game name if we have a valid steam link
             if 'store.steampowered.com' in url:
