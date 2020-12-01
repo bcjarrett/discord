@@ -54,6 +54,8 @@ class Game(BaseModel):
     @staticmethod
     def get_game(in_str):
         in_str = in_str.lower()
+        if not in_str:
+            return 0, f'Please supply a game name'
         try:
             return 1, Game.get(Game.name == in_str, Game.finished == False)
         except Game.DoesNotExist:
