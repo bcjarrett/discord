@@ -108,29 +108,45 @@ class GameTrackerCog(commands.Cog, name='Game Tracker'):
             return await ctx.send(_)
 
     @commands.command()
-    async def finish(self, ctx, arg):
+    async def finish(self, ctx, *args):
         """Marks a game as finished"""""
-        game = Game.get_game(arg)
+        game_title = ' '.join(list(args))
+        game = Game.get_game(game_title)
         if game[0]:
             game[1].started = True
             game[1].finished = True
             game[1].finished_on = datetime.now()
             game[1].save()
-            return await ctx.send(f'Marked {arg} as finished')
+            return await ctx.send(f'Marked {game_title} as finished')
         else:
             return await ctx.send(game[1])
 
     @commands.command()
-    async def start(self, ctx, arg):
+    async def start(self, ctx, *args):
         """Marks a game as started"""
-        game = Game.get_game(arg)
+        game_title = ' '.join(list(args))
+        game = Game.get_game(game_title)
         if game[0]:
             game[1].started = True
             game[1].started_on = datetime.now()
             game[1].save()
-            return await ctx.send(f'Started {arg}')
+            return await ctx.send(f'Started {game_title}')
         else:
             return await ctx.send(game[1])
+
+    @commands.command(hidden=True)
+    async def delete(self, ctx, *args):
+        """Deletes a game. Cannot be undone"""
+        game_title = ' '.join(list(args))
+        game = Game.get_game(game_title)
+        if ctx.author.id == 488728306359730186:
+            if game[0]:
+                game[1].delete_instance()
+                return await ctx.send(f'Deleted {game_title} from database')
+            else:
+                return await ctx.send(game[1])
+        else:
+            return await ctx.send(f'Delete can only be performed by db admin')
 
     @commands.command()
     async def games(self, ctx):

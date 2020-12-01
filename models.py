@@ -40,8 +40,6 @@ class Game(BaseModel):
 
     @property
     def recent_activity(self):
-
-        date = self.added_on if not self.started else self.started_on
         if not self.started:
             flag = 'added'
         elif not self.finished:
@@ -51,9 +49,7 @@ class Game(BaseModel):
 
         prop = flag + '_on'
         date_diff = (datetime.datetime.now() - getattr(self, prop)).days
-        date_diff_text = f' ({flag} {(datetime.datetime.now() - date).days} day' \
-                         f'{plural((datetime.datetime.now() - date).days)} ago)' if date_diff else ''
-        return date_diff_text
+        return f' ({flag} {date_diff} day{plural(date_diff)} ago)' if date_diff else ''
 
     @staticmethod
     def get_game(in_str):
@@ -66,6 +62,8 @@ class Game(BaseModel):
                 return 0, f'More than one game returned for "{in_str}": {[i.name for i in game]}'
             if len(game) == 1:
                 return 1, game[0]
+            if len(game) == 0:
+                return 0, f'No matching game for "{in_str}"'
 
 
 db.connect()
