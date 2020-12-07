@@ -8,6 +8,7 @@ TOKEN = conf['API_SECRET']
 initial_extensions = [
     'cogs.p00p',
     'cogs.game_tracker',
+    'cogs.youtube_music'
 ]
 
 bot = commands.Bot(command_prefix='?',
