@@ -16,5 +16,20 @@ class Config:
         except KeyError:
             raise KeyError(f'{item} is not in the secrets file')
 
+    def __setitem__(self, key, value):
+        self.json_secrets[key] = value
+
 
 conf = Config()
+
+# Define attached cogs here
+COGS = [
+    'p00p',
+    'game_tracker',
+    'music'
+]
+conf['COGS'] = COGS
+
+# Database
+DATABASE = 'dheads.db'
+

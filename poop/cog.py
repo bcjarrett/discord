@@ -2,7 +2,7 @@ import random
 
 from discord.ext import commands
 
-from models import TextCount
+from .models import TextCount
 from util import plural
 
 

@@ -1,26 +1,9 @@
-import datetime
-
 import peewee
-
+from db_init import BaseModel
+import datetime
 from util import plural
-from config import conf
-
-DATABASE = conf['DB_NAME']
-
-db = peewee.SqliteDatabase(DATABASE)
 
 
-class BaseModel(peewee.Model):
-    class Meta:
-        database = db
-
-
-class TextCount(BaseModel):
-    text = peewee.CharField()
-    counter = peewee.IntegerField()
-
-
-# New Games
 class Game(BaseModel):
     name = peewee.CharField()
     added_by = peewee.CharField()
@@ -66,7 +49,3 @@ class Game(BaseModel):
                 return 1, game[0]
             if len(game) == 0:
                 return 0, f'No matching game for "{in_str}"'
-
-
-db.connect()
-db.create_tables([TextCount, Game])

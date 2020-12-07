@@ -2,23 +2,19 @@ import discord
 from discord.ext import commands
 
 from config import conf
+from db_init import db
 
 TOKEN = conf['API_SECRET']
-
-initial_extensions = [
-    'cogs.p00p',
-    'cogs.game_tracker',
-    'cogs.youtube_music'
-]
 
 bot = commands.Bot(command_prefix='?',
                    description='Keeps track of games to play and occasionally p00ps. \n'
                                'https://github.com/bcjarrett/discord',
                    intents=discord.Intents.all())
 
+
 if __name__ == '__main__':
-    for extension in initial_extensions:
-        bot.load_extension(extension)
+    for extension in conf['COGS']:
+        bot.load_extension(f'{extension}.cog')
 
 
 @bot.event
