@@ -1,4 +1,4 @@
-from db_init import BaseModel
+from database import BaseModel
 import peewee
 
 

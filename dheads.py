@@ -2,7 +2,9 @@ import discord
 from discord.ext import commands
 
 from config import conf
-from db_init import db
+from database import db_setup
+
+db_setup()
 
 TOKEN = conf['API_SECRET']
 

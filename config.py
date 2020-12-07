@@ -23,13 +23,11 @@ class Config:
 conf = Config()
 
 # Define attached cogs here
-COGS = [
+conf['COGS'] = [
     'p00p',
     'game_tracker',
     'music'
 ]
-conf['COGS'] = COGS
 
 # Database
-DATABASE = 'dheads.db'
-
+conf['DATABASE'] = 'dheads.db'
