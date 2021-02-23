@@ -15,7 +15,7 @@ class MgmtCommandsCog(commands.Cog, name='Management Commands'):
         await ctx.send(reset_message)
         Reset.create(channel_id=ctx.channel.id)
         async with ctx.typing():
-            os.system(r"python C:\Users\BenJarrett\Documents\PycharmProjects\discord\reset_bot.py")
+            os.system(r"python reset_bot.py")
 
 
 def setup(bot):
