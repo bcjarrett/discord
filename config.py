@@ -26,7 +26,8 @@ conf = Config()
 conf['COGS'] = [
     'p00p',
     'game_tracker',
-    'music'
+    'music',
+    'mgmt'
 ]
 
 # Database

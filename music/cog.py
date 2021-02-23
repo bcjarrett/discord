@@ -491,5 +491,5 @@ class Music(commands.Cog):
 def setup(bot):
     bot.add_cog(Music(bot))
 
-bot = commands.Bot('music.', description='Yet another music bot.')
+bot = commands.Bot('music.', description='Music bot.')
 bot.add_cog(Music(bot))

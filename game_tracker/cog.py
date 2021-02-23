@@ -13,6 +13,36 @@ headers = {
                   'Chrome/61.0.3163.100 Safari/537.36'}
 
 
+def content_squinch(content, content_list, length=1000):
+    temp_length = 0
+    _slice = 0
+    for n, i in enumerate(content):
+        if len(i) + temp_length < length:
+            _slice += 1
+            temp_length += len(i)
+        else:
+            content_list.append(content[0:_slice])
+            return content_list, content[_slice:]
+    content_list.append(content[0:_slice])
+    return content_list, content[_slice:]
+
+
+def _add_field(_embed, name, value, inline):
+    if len(value) > 1000:
+        content = value.split('\n')
+        final_content = []
+        while content:
+            final_content, content = content_squinch(content, final_content)
+        for n, i in enumerate(final_content):
+            if n == 0:
+                _embed.add_field(name=f'{name}', value='\n'.join(i), inline=inline)
+            else:
+                _embed.add_field(name=f'\t...(contd.)', value='\n'.join(i), inline=inline)
+
+    else:
+        _embed.add_field(name=f'{name}', value=value, inline=inline)
+
+
 async def search_game(title, number_results=10, language_code='en'):
     google_url = 'https://www.google.com/search?q={}&num={}&hl={}'.format(title.replace(" ", "+") + 'steam game',
                                                                           number_results + 1,
@@ -109,7 +139,7 @@ class GameTrackerCog(commands.Cog, name='Game Tracker'):
 
     @commands.command()
     async def finish(self, ctx, *args):
-        """Marks a game as finished"""""
+        """Marks a game as finished"""
         game_title = ' '.join(list(args))
         game = Game.get_game(game_title)
         if game[0]:
@@ -153,13 +183,13 @@ class GameTrackerCog(commands.Cog, name='Game Tracker'):
         """A list of games to play"""
 
         def make_games_content(games_list):
-            content = ''
+            content = []
             for g in games_list:
                 if g.url:
-                    content += f'[{g.name.title()}]({g.url}){g.recent_activity}\n'
+                    content.append(f'[{g.name.title()}]({g.url}){g.recent_activity}')
                 else:
-                    content += f'{g.name.title()}{g.recent_activity}\n'
-            return content
+                    content.append(f'{g.name.title()}{g.recent_activity}')
+            return '\n'.join(content)
 
         embed = discord.Embed(
             title='Current Games List',
@@ -179,9 +209,9 @@ class GameTrackerCog(commands.Cog, name='Game Tracker'):
         ).order_by(-Game.started_on, Game.name)
         new_games_value = make_games_content(new_games)
         started_games_value = make_games_content(started_games)
-
-        embed.add_field(name='New Games', value=new_games_value, inline=False) if new_games_value else None
-        embed.add_field(name='Games in Progress', value=started_games_value, inline=False) if started_games_value else None
+        _add_field(embed, name='New Games', value=new_games_value, inline=False) if new_games_value else None
+        _add_field(embed, name='Games in Progress', value=started_games_value,
+                   inline=False) if started_games_value else None
 
         return await ctx.send(embed=embed)
 
@@ -208,7 +238,8 @@ class GameTrackerCog(commands.Cog, name='Game Tracker'):
         ).order_by(-Game.finished_on, Game.name)
         finished_games_value = make_games_content(finished_games)
 
-        embed.add_field(name='Finished Games', value=finished_games_value, inline=False) if finished_games_value else None
+        embed.add_field(name='Finished Games', value=finished_games_value,
+                        inline=False) if finished_games_value else None
 
         return await ctx.send(embed=embed)
 

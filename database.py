@@ -16,9 +16,12 @@ def db_setup():
     models = []
 
     for cog in conf['COGS']:
-        module_info = pyclbr.readmodule(f'{cog}.models')
-        for i in module_info.values():
-            if 'BaseModel' in i.super:
-                models.append(locate(f'{cog}.models.{i.name}'))
+        try:
+            module_info = pyclbr.readmodule(f'{cog}.models')
+            for i in module_info.values():
+                if 'BaseModel' in i.super:
+                    models.append(locate(f'{cog}.models.{i.name}'))
+        except ModuleNotFoundError:
+            pass
 
     db.create_tables(models)
