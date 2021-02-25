@@ -31,7 +31,6 @@ async def on_ready():
     channel = bot.get_channel(channel_id)
     last_msg = await channel.history().find(lambda m: m.author.id == bot.user.id)
     startup_msg = 'Successfully Started Up :thumbsup:'
-    print(last_msg.clean_content, reset_message)
     if last_msg.clean_content == reset_message:
         await last_msg.edit(content=startup_msg)
     else:

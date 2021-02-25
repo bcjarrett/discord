@@ -8,6 +8,8 @@ import discord
 import youtube_dl
 from async_timeout import timeout
 from discord.ext import commands
+from config import conf
+from util import populous_channel
 
 # Silence useless bug reports messages
 youtube_dl.utils.bug_reports_message = lambda: ''
@@ -287,8 +289,10 @@ class Music(commands.Cog):
     @commands.command(name='join', invoke_without_subcommand=True)
     async def _join(self, ctx: commands.Context):
         """Joins a voice channel."""
-
-        destination = ctx.author.voice.channel
+        try:
+            destination = ctx.author.voice.channel
+        except AttributeError:
+            destination = ctx.bot.get_channel(populous_channel(ctx))
         if ctx.voice_state.voice:
             await ctx.voice_state.voice.move_to(destination)
             return
@@ -480,8 +484,8 @@ class Music(commands.Cog):
     @_join.before_invoke
     @_play.before_invoke
     async def ensure_voice_state(self, ctx: commands.Context):
-        if not ctx.author.voice or not ctx.author.voice.channel:
-            raise commands.CommandError('You are not connected to any voice channel.')
+        # if not ctx.author.voice or not ctx.author.voice.channel:
+        #     raise commands.CommandError('You are not connected to any voice channel.')
 
         if ctx.voice_client:
             if ctx.voice_client.channel != ctx.author.voice.channel:
