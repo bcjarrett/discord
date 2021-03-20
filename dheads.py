@@ -35,7 +35,7 @@ async def on_ready():
         await last_msg.edit(content=startup_msg)
     else:
         await channel.send(startup_msg)
-    await bot.change_presence(activity=discord.Game(name="Playing Oblivion"))
+    await bot.change_presence(activity=discord.Game(name="Oblivion"))
 
 
 bot.run(TOKEN, bot=True)
