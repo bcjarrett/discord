@@ -41,8 +41,11 @@ class PoopCog(commands.Cog, name='p00p bot core'):
         poop_model = TextCount.get(text='p00p')
         max_poop = poop_model.max_num
         owner = poop_model.record_holder
-        return await ctx.send(f'Our big loser is currently {owner} with {max_poop} p00p{plural(max_poop)}!'
-                              f'\n:clap: :clap: :clap:')
+        if owner:
+            return await ctx.send(f'Our big loser is currently {owner} with {max_poop} p00p{plural(max_poop)}!'
+                                  f'\n:clap: :clap: :clap:')
+        else:
+            return await ctx.send('No current record, get to p00pin.')
 
     @commands.Cog.listener()
     async def on_message(self, message):
