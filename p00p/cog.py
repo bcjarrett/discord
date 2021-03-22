@@ -55,7 +55,7 @@ class PoopCog(commands.Cog, name='p00p bot core'):
         """
         poop_model = TextCount.get(text='p00p')
 
-        # Normal dist centered at 0, sd 20, positive ints only
+        # Positive half-normal dist centered at 0, sd 20. ints only
         num_poops = round(abs(NormalDist(0, 20).inv_cdf(random.random())))
         special_numbers = {
             -1: f'{poop_n(num_poops)}',
