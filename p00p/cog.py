@@ -35,7 +35,7 @@ class PoopCog(commands.Cog, name='p00p bot core'):
         return await ctx.send(f'We\'ve sent {count} p00p{plural(count)}!')
 
     @commands.command(description='Show the record holder',
-                      aliases=['record', 'most_poops', 'mostpoops', 'bigshit', 'bigpoop', 'bigpooper'])
+                      aliases=['record', 'most_poops', 'mostpoops', 'bigshit', 'bigpoop', 'bigpooper', 'bigshitter'])
     async def max(self, ctx):
         """Displays the current p00p record holder"""
         poop_model = TextCount.get(text='p00p')
