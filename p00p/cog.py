@@ -1,6 +1,6 @@
 import random
 
-import numpy as np
+from statistics import NormalDist
 from discord.ext import commands
 
 from util import plural
@@ -56,7 +56,7 @@ class PoopCog(commands.Cog, name='p00p bot core'):
         poop_model = TextCount.get(text='p00p')
 
         # Normal dist centered at 0, sd 20, positive ints only
-        num_poops = round(abs(np.random.normal(0, 20)))
+        num_poops = round(abs(NormalDist(0, 20).inv_cdf(random.random())))
         special_numbers = {
             -1: f'{poop_n(num_poops)}',
             0: 'Ooops, looks like that was just a fart :wind_blowing_face:',
