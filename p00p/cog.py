@@ -1,15 +1,10 @@
 import random
-
 from statistics import NormalDist
+
 from discord.ext import commands
 
-from util import plural
+from util import plural, poop_n
 from .models import TextCount
-
-
-def poop_n(num_poops, text='p00p'):
-    poops = [text for i in range(num_poops)]
-    return ' '.join(poops)
 
 
 class PoopCog(commands.Cog, name='p00p bot core'):

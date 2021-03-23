@@ -1,6 +1,8 @@
-import peewee
-from database import BaseModel
 import datetime
+
+import peewee
+
+from database import BaseModel
 from util import plural
 
 

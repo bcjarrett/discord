@@ -8,7 +8,7 @@ import discord
 import youtube_dl
 from async_timeout import timeout
 from discord.ext import commands
-from config import conf
+
 from util import populous_channel
 
 # Silence useless bug reports messages
@@ -494,6 +494,7 @@ class Music(commands.Cog):
 
 def setup(bot):
     bot.add_cog(Music(bot))
+
 
 bot = commands.Bot('music.', description='Music bot.')
 bot.add_cog(Music(bot))

@@ -1,6 +1,8 @@
-import peewee
 import pyclbr
 from pydoc import locate
+
+import peewee
+
 from config import conf
 
 
