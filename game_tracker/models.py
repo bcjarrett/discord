@@ -3,6 +3,7 @@ import datetime
 import peewee
 
 from database import BaseModel
+from util import plural
 
 
 class Game(BaseModel):
@@ -18,6 +19,9 @@ class Game(BaseModel):
     release_date_str = peewee.CharField(default=None, null=True)
     release_date_obj = peewee.DateTimeField(default=None, null=True)
     tags = peewee.CharField(default=None, null=True)
+    players = peewee.CharField(default=None, null=True)
+    party_game = peewee.BooleanField(default=False)
+    price = peewee.CharField(default=None, null=True)
 
     def __str__(self):
         return self.name
@@ -26,57 +30,47 @@ class Game(BaseModel):
         return self.__str__()
 
     @property
-    def simple_tags(self):
-        price = None
-        coop = False
-        release_date = None
-        multi = False
-        out_tags = []
-        tags = str(self.tags).split(',')
-
-        # TODO: Refactor
-        if self.release_date_obj:
-            if self.release_date_obj > datetime.datetime.now():
-                if self.release_date_str:
-                    release_date = self.release_date_str
-                elif self.release_date_obj:
-                    release_date = self.release_date_obj
-
-        if not self.release_date_obj:
-            if self.release_date_str:
-                release_date = self.release_date_str
-            elif self.release_date_obj:
-                release_date = self.release_date_obj
-
-        if '$' in tags[0] and not self.started:
-            price = tags[0]
+    def co_op(self):
         if 'co-op' in str(self.tags).lower() or 'coop' in str(self.tags).lower() or 'co op' in str(self.tags).lower():
-            coop = 'Co-op'
-        if 'multi' in str(self.tags).lower() and not coop:
-            multi = 'Multiplayer'
+            return True
+        return False
 
-        out_tags = [i for i in [price, coop, multi, release_date] if i]
+    @property
+    def multiplayer(self):
+        if 'multi' in str(self.tags).lower():
+            return True
+        return False
+
+    @property
+    def simple_tags(self):
+        price = self.price if self.price else None
+        party = 'Party Game' if self.party_game else None
+        players = f'{self.players} player{plural(self.players)}' if self.players else None
+        release_date = self.release_date_str if self.release_date_str else None
+        game_type = None
+
+        co_op = self.co_op
+        multi = self.multiplayer
+        if co_op:
+            game_type = 'Co-op'
+        elif multi:
+            game_type = 'Multiplayer'
+
+        # Hide release date for released games
+        if self.release_date_obj:
+            if self.release_date_obj < datetime.datetime.now():
+                release_date = None
+
+        out_tags = [i for i in [price, game_type, party, players, release_date] if i]
         if out_tags:
             return ', '.join(out_tags)
 
+        # If that all broke, give them whatever we have
         if self.tags:
             return str(self.tags).replace(',', ', ')
 
+        # Or nothing
         return None
-
-    # Not used
-    # @property
-    # def recent_activity(self):
-    #     if not self.started:
-    #         flag = 'added'
-    #     elif not self.finished:
-    #         flag = 'started'
-    #     else:
-    #         flag = 'finished'
-    #
-    #     prop = flag + '_on'
-    #     date_diff = (datetime.datetime.now() - getattr(self, prop)).days
-    #     return f' ({flag} {date_diff} day{plural(date_diff)} ago)' if date_diff else ''
 
     @staticmethod
     def get_game(in_str):

@@ -25,12 +25,15 @@ class GameTrackerCog(commands.Cog, name='Game Tracker'):
                 'To add a game please supply a game name and optional URL as parameters. e.g "add Castle Crashers" or '
                 '"add Castle Crashers http://cannibalsock.com/"')
         game_in = list(args)
+
         url = game_in.pop(-1) if game_in[-1].lower().startswith('http') else None
         release_date_obj = None
         release_date_str = None
         steam_id = None
+        price = None
         tags = None
         name = ' '.join(game_in)
+
         if not url:
             async with ctx.typing():
                 url = await search_game(name)
@@ -44,7 +47,7 @@ class GameTrackerCog(commands.Cog, name='Game Tracker'):
                     steam_id = steam_id[0].replace('/', '')
 
                 async with ctx.typing():
-                    _name, release_date_str, release_date_obj, tags = await get_steam_game_info(steam_id)
+                    _name, release_date_str, release_date_obj, price, tags = await get_steam_game_info(steam_id)
             else:
                 _name = url
             if _name:
@@ -64,7 +67,7 @@ class GameTrackerCog(commands.Cog, name='Game Tracker'):
                 continue
 
         g = Game.create(name=name.lower(), added_by=ctx.author.id, url=url, steam_id=steam_id,
-                        release_date_str=release_date_str, release_date_obj=release_date_obj, tags=tags)
+                        release_date_str=release_date_str, release_date_obj=release_date_obj, price=price, tags=tags)
         _ = f'Added {g.name.title()} ({g.url})' if g.url else f'Added {g.name.title()}'
         return await ctx.send(_)
 

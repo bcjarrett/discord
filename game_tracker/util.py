@@ -79,47 +79,53 @@ async def get_steam_game_info(app_id):
 
                 if content[str(app_id)]['success'] is True:
                     data = content[str(app_id)]['data']
-                    tags = []
                     game_name = data['name']
-                    is_free = data['is_free']
-                    if is_free:
-                        tags.append('Free')
+                    tags = []
+                    price = None
+                    release_date_str = None
+                    release_date_obj = None
+
+                    # Price
+                    if data['is_free']:
+                        price = 'Free'
                     else:
                         try:
                             price = data['price_overview']['final_formatted']
-                            tags.append(price)
                         except KeyError:
                             pass
+
+                    # Tags
                     categories = data['categories']
                     cats_we_care_about = [1, 9, 38, 39]
                     for i in categories:
                         for c in cats_we_care_about:
                             if c == i['id']:
                                 tags.append(i['description'])
-                    release_date_str = data['release_date']['date']
+
+                    # Release Dates
+                    try:
+                        release_date_str = data['release_date']['date']
+                    except KeyError:
+                        pass
                     try:
                         release_date_obj = parser.parse(release_date_str)
                     except (parser._parser.ParserError, TypeError):
-                        release_date_obj = None
+                        pass
 
                     tags = ', '.join(tags)
-                    return game_name, release_date_str, release_date_obj, tags
+                    return game_name, release_date_str, release_date_obj, price, tags
             return None, None, None, None
 
 
-async def update_game(game, x=0):
-    banned_chars = 'АаБбВвГгДдЕеЁёЖжЗзИиЙйКкЛлМмНнОоПпРрСсТтУуФфХхЦцЧчШшЩщЪъЫыЬьЭэЮюЯя€₴'
-    x = x
+async def update_game(game):
     if game.steam_id:
-        app_name, release_date_str, release_date_obj, tags = await get_steam_game_info(game.steam_id)
-        if any(match in tags for match in [i for i in banned_chars]):
-            x += 1
-            print(app_name, x)
-            await update_game(game, x=x)
+        app_name, release_date_str, release_date_obj, price, tags = await get_steam_game_info(game.steam_id)
         if release_date_obj:
             game.release_date_obj = release_date_obj
         if release_date_str:
             game.release_date_str = release_date_str
         if tags:
             game.tags = tags
+        if price:
+            game.price = price
         game.save()
