@@ -2,3 +2,4 @@ peewee==3.14.0
 discord.py==1.5.1
 youtube-dl==2020.12.5
 beautifulsoup4==4.9.3
+python-dateutil

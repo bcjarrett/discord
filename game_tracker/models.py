@@ -16,6 +16,8 @@ class Game(BaseModel):
     finished_on = peewee.DateTimeField(null=True)
     url = peewee.CharField(null=True)
     steam_id = peewee.BigIntegerField(null=True)
+    release_date_str = peewee.CharField(default=None, null=True)
+    release_date_obj = peewee.DateTimeField(default=None, null=True)
 
     def __str__(self):
         return self.name
@@ -25,7 +27,9 @@ class Game(BaseModel):
 
     @property
     def recent_activity(self):
-        if not self.started:
+        if self.release_date:
+            flag = 'not_out_yet'
+        elif not self.started:
             flag = 'added'
         elif not self.finished:
             flag = 'started'

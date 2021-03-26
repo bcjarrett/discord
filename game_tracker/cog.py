@@ -3,6 +3,7 @@ from datetime import datetime
 
 import aiohttp
 import discord
+from dateutil import parser
 from bs4 import BeautifulSoup
 from discord.ext import commands
 
@@ -70,20 +71,23 @@ async def search_game(title, number_results=10, language_code='en'):
             return None
 
 
-async def game_name_from_steam_id(steam_id):
-    url = f'https://store.steampowered.com/app/{steam_id}/'
-    app_class = 'apphub_AppName'
-
+async def get_steam_game_info(url):
     async with aiohttp.ClientSession() as session:
         async with session.get(url, headers=headers) as r:
             if r.status == 200:
                 text = await r.read()
 
         soup = BeautifulSoup(text, 'html.parser')
-        app_name_div = soup.find('div', attrs={'class': app_class})
-        if app_name_div:
-            return app_name_div.text
-        return None
+        try:
+            app_name = soup.find('div', attrs={'class': 'apphub_AppName'}).text
+        except AttributeError:
+            app_name = None
+        try:
+            release_date = soup.find('div', attrs={'class': 'release_date'}).find('div', attrs={'class': 'date'}).text
+        except AttributeError:
+            release_date = None
+
+        return app_name, release_date
 
 
 class GameTrackerCog(commands.Cog, name='Game Tracker'):
@@ -104,38 +108,50 @@ class GameTrackerCog(commands.Cog, name='Game Tracker'):
                 '"add Castle Crashers http://cannibalsock.com/"')
         game_in = list(args)
         url = game_in.pop(-1) if game_in[-1].lower().startswith('http') else None
-        name = ' '.join(game_in)
+        release_date_obj = None
+        release_date_str = None
         steam_id = None
+        name = ' '.join(game_in)
         if not url:
             async with ctx.typing():
                 url = await search_game(name)
-        if url and not name:
-            # Search for game name if we have a valid steam link
+        if url:
+            # Search steam for game info
             if 'store.steampowered.com' in url:
-                name = [i for i in url.split('/') if i][-1].replace('_', ' ')
+                _name, release_date_str = await get_steam_game_info(url)
                 try:
-                    # if the last bit of the url was a number, then we cant strip the name
-                    # look up name on steam.com with id
-                    int(name)
-                    name = await game_name_from_steam_id(name)
-                except ValueError:
-                    # if it wasn't a number, assume its the game name
+                    release_date_obj = parser.parse(release_date_str)
+                except (parser._parser.ParserError, TypeError):
                     pass
             else:
-                name = url
-        if url:
+                _name = url
+            if _name:
+                name = _name
+
+            # Pull out the steamID for some reason
             if not url.endswith('/'):
                 url += '/'
             steam_id = re.search(r'/[0-9]{4,}/', url)
             if steam_id:
                 steam_id = steam_id[0].replace('/', '')
-        try:
-            Game.get(Game.name == name.lower(), Game.started == False)
-            return await ctx.send(f'Looks like "{name}" is already on the list')
-        except Game.DoesNotExist:
-            g = Game.create(name=name.lower(), added_by=ctx.author.id, url=url, steam_id=steam_id)
-            _ = f'Added {g.name.title()} ({g.url})' if g.url else f'Added {g.name.title()}'
-            return await ctx.send(_)
+
+        # Check if game already in db in some other form
+        # this should be a filter but i don't want to look up how to do that with peewee
+        for check in [
+            lambda: Game.get(Game.name == name.lower()),
+            lambda: Game.get(Game.steam_id == steam_id),
+            lambda: Game.get(Game.url == url),
+        ]:
+            try:
+                _ = check()
+                return await ctx.send(f'Looks like "{name}" is already on the list')
+            except Game.DoesNotExist:
+                continue
+
+        g = Game.create(name=name.lower(), added_by=ctx.author.id, url=url, steam_id=steam_id,
+                        release_date_str=release_date_str, release_date_obj=release_date_obj)
+        _ = f'Added {g.name.title()} ({g.url})' if g.url else f'Added {g.name.title()}'
+        return await ctx.send(_)
 
     @commands.command()
     async def finish(self, ctx, *args):
