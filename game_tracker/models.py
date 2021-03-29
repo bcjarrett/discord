@@ -6,6 +6,56 @@ from database import BaseModel
 from util import plural
 
 
+class GamesManager:
+    """Helper methods for common queries"""
+
+    def __init__(self):
+        self._model = Game
+        self.q = self._model.select()
+
+    def new(self):
+        self.q = self.q.where(
+            self._model.started == 0,
+            self._model.finished == 0
+        )
+        return self
+
+    def old(self):
+        self.q = self.q.where(
+            self._model.started == 1,
+            self._model.finished == 0
+        )
+        return self
+
+    def released(self):
+        self.q = self.q.where(
+            Game.release_date_obj <= (datetime.datetime.now())
+        )
+        return self
+
+    def party(self):
+        self.q = self.q.where(
+            Game.party_game == 1
+        )
+        return self
+
+    def unreleased(self):
+        self.q = self.q.where(
+            (Game.release_date_obj >= (datetime.datetime.now())) | (Game.release_date_obj.is_null())
+        )
+        return self
+
+    def players(self, num_players):
+        self.q = self.q.where(
+            Game.min_players <= num_players,
+            Game.max_players >= num_players
+        )
+        return self
+
+    def call(self):
+        return self.q.order_by(self._model.added_on, self._model.name)
+
+
 class Game(BaseModel):
     name = peewee.CharField()
     added_by = peewee.CharField()
@@ -19,9 +69,14 @@ class Game(BaseModel):
     release_date_str = peewee.CharField(default=None, null=True)
     release_date_obj = peewee.DateTimeField(default=None, null=True)
     tags = peewee.CharField(default=None, null=True)
-    players = peewee.CharField(default=None, null=True)
+    min_players = peewee.IntegerField(default=None)
+    max_players = peewee.IntegerField(default=None)
     party_game = peewee.BooleanField(default=False)
     price = peewee.CharField(default=None, null=True)
+
+    @staticmethod
+    def manager():
+        return GamesManager()
 
     def __str__(self):
         return self.name
@@ -43,10 +98,17 @@ class Game(BaseModel):
 
     @property
     def simple_tags(self):
-        price = self.price if self.price else None
+        price = self.price if (self.price and not self.started) else None
         party = 'Party Game' if self.party_game else None
-        players = f'{self.players} player{plural(self.players)}' if self.players else None
         release_date = self.release_date_str if self.release_date_str else None
+
+        players = None
+        if self.min_players and self.max_players:
+            if self.min_players == self.max_players:
+                players = f'{self.min_players} players'
+            else:
+                players = f'{self.min_players} - {self.max_players} players'
+
         game_type = None
 
         co_op = self.co_op

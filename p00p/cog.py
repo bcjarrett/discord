@@ -21,7 +21,7 @@ class PoopCog(commands.Cog, name='p00p bot core'):
         poop_model.record_holder = ''
         poop_model.save()
         return await ctx.send(
-            '"A one hump camel makes a one hump poop, and a two hump camel makes a two hump poop" -Ghandi')
+            '"A one hump camel makes a one hump poop, and a two hump camel makes a two hump poop"')
 
     @commands.command(description='Display the current p00p count')
     async def count(self, ctx):

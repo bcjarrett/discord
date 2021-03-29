@@ -5,10 +5,17 @@ import discord
 from discord.ext import commands
 
 from .models import Game
-from .util import _add_field, get_steam_game_info, search_game, update_game
+from .util import _add_games_list_to_embed, get_steam_game_info, search_game, update_game
 
 
 class GameTrackerCog(commands.Cog, name='Game Tracker'):
+
+    @staticmethod
+    def _embed(title):
+        return discord.Embed(
+            title=title,
+            colour=discord.Colour(0xE5E242),
+        )
 
     @commands.command(description='Add a game to the list')
     async def add(self, ctx, *args):
@@ -115,44 +122,44 @@ class GameTrackerCog(commands.Cog, name='Game Tracker'):
     @commands.command()
     async def games(self, ctx):
         """A list of games to play"""
+        embed = self._embed('Master Games List')
+        new_released_games = Game.manager().new().released().call()
+        unreleased_games = Game.manager().unreleased().call()
+        started_games = Game.manager().started().call()
 
-        def make_games_content(games_list):
-            content = []
-            for g in games_list:
-                tags = f'({g.simple_tags})' if g.simple_tags else ''
-                if g.url:
-                    content.append(f'[{g.name.title()}]({g.url}) {tags}')
-                else:
-                    content.append(f'{g.name.title()} {tags}')
-            return '\n'.join(content)
+        for i in [('New', new_released_games),
+                  ('Keep Playing', started_games),
+                  ('Unreleased', unreleased_games)]:
+            _add_games_list_to_embed(embed, i)
 
-        embed = discord.Embed(
-            title='Current Games List',
-            colour=discord.Colour(0xE5E242),
-            # description='`?add castle crashers`\n`?remove castle crashers`\n`?start castle
-            # crashers`\n`?games`\n`?game_links`'
-        )
-        new_released_games = Game.select().where(
-            Game.release_date_obj <= (datetime.now()),
-            Game.started == False,
-            Game.finished == False
-        ).order_by(-Game.added_on, Game.name)
-        unreleased_games = Game.select().where(
-            (Game.release_date_obj >= (datetime.now())) | (Game.release_date_obj.is_null()),
-            ).order_by(-Game.added_on, Game.name)
-        started_games = Game.select().where(
-            # Game.added_on >= (datetime.now() - timedelta(days=30)),
-            Game.started == True,
-            Game.finished == False
-        ).order_by(-Game.started_on, Game.name)
-        new_released_games_value = make_games_content(new_released_games)
-        unreleased_games_value = make_games_content(unreleased_games)
-        started_games_value = make_games_content(started_games)
-        _add_field(embed, name='New Games', value=new_released_games_value, inline=False) if new_released_games_value else None
-        _add_field(embed, name='Games in Progress', value=started_games_value,
-                   inline=False) if started_games_value else None
-        _add_field(embed, name='Unreleased Games', value=unreleased_games_value, inline=False) if unreleased_games_value else None
+        return await ctx.send(embed=embed)
 
+    @commands.command()
+    async def party(self, ctx):
+        """A list of party games to play"""
+        embed = self._embed('Party Games List')
+        released_party_games = Game.manager().new().party().released().call()
+        unreleased_party_games = Game.manager().unreleased().party().call()
+        started_party_games = Game.manager().old().party().call()
+
+        for i in [('Play Now!', released_party_games),
+                  ('Play Again!', started_party_games),
+                  ('Play Soon!', unreleased_party_games), ]:
+            _add_games_list_to_embed(embed, i)
+        return await ctx.send(embed=embed)
+
+    @commands.command()
+    async def players(self, ctx, num_players):
+        """A list of games to filtered by number of players"""
+        embed = self._embed('Party Games List')
+        released_party_games = Game.manager().new().released().players(num_players).call()
+        unreleased_party_games = Game.manager().unreleased().players(num_players).call()
+        started_party_games = Game.manager().old().players(num_players).call()
+
+        for i in [('Play Now!', released_party_games),
+                  ('Play Again!', started_party_games),
+                  ('Play Soon!', unreleased_party_games), ]:
+            _add_games_list_to_embed(embed, i)
         return await ctx.send(embed=embed)
 
     @commands.command()

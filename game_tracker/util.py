@@ -129,3 +129,21 @@ async def update_game(game):
         if price:
             game.price = price
         game.save()
+
+
+def _make_games_content(games_list):
+    content = []
+    for g in games_list:
+        tags = f'({g.simple_tags})' if g.simple_tags else ''
+        if g.url:
+            content.append(f'[{g.name.title()}]({g.url}) {tags}')
+        else:
+            content.append(f'{g.name.title()} {tags}')
+    return '\n'.join(content)
+
+
+def _add_games_list_to_embed(embed, section):
+    """section must be a tuple of the form (header, list_of_game_objects)"""
+    content = _make_games_content(section[1])
+    _add_field(embed, name=section[0], value=content, inline=False) if content else None
+    return embed
