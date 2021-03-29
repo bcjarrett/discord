@@ -55,10 +55,16 @@ class GameTrackerCog(commands.Cog, name='Game Tracker'):
             url = kwargs.get('url', None)
             min_players = kwargs.get('min', None)
             max_players = kwargs.get('max', None)
-            party = kwargs.get('party', 0)
+            party = bool(kwargs.get('party', 0))
 
+        # Lazy validation
         if (max_players and not min_players) or (min_players and not max_players):
             return await ctx.send(f'Error: -max and -min must be supplied as a pair')
+        try:
+            int(max_players)
+            int(min_players)
+        except ValueError:
+            return await ctx.send(f'Error: -max and -min must be integers')
 
         # broken for games that start with http
         if not url:
