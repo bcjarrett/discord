@@ -70,7 +70,7 @@ async def search_game(title, number_results=10, language_code='en'):
             return None
 
 
-async def parse_steam_game_info_for_db_model(data):
+async def parse_steam_game_info(data):
     if data:
         game_name = data['name']
         tags = []

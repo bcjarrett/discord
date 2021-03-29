@@ -5,7 +5,7 @@ import discord
 from discord.ext import commands
 
 from .models import Game
-from .util import add_games_list_to_embed, parse_steam_game_info_for_db_model, get_steam_game_info, search_game, \
+from .util import add_games_list_to_embed, get_steam_game_info, parse_steam_game_info, search_game, \
     update_game
 
 
@@ -21,30 +21,57 @@ class GameTrackerCog(commands.Cog, name='Game Tracker'):
     @commands.command(description='Add a game to the list')
     async def add(self, ctx, *args):
         """
-        Adds a new game to the list
-        URL as optional parameter, searches steam if no URL is provided
+        Adds a new game to the list, takes optional parameters [-name -max -min -name -url -party]
 
             add Castle Crashers
             add Castle Crashers https://store.steampowered.com/app/204360/Castle_Crashers/
+
+            # Minimum 3 players, Max 4, is Party Game Flag On
+            add Castle Crashers -url=https://store.steampowered.com/app/204360/Castle_Crashers/ -min=3 -max=4 -party=1
         """
+
+        name, url, min_players, max_players = None, None, None, None
+        party = 0
+        release_date_obj, release_date_str, steam_id, price, tags = None, None, None, None, None
 
         if not args:
             return await ctx.channel.send(
                 'To add a game please supply a game name and optional URL as parameters. e.g "add Castle Crashers" or '
-                '"add Castle Crashers http://cannibalsock.com/"')
-        game_in = list(args)
+                '"add Castle Crashers -url=http://cannibalsock.com/"')
 
-        url = game_in.pop(-1) if game_in[-1].lower().startswith('http') else None
-        release_date_obj = None
-        release_date_str = None
-        steam_id = None
-        price = None
-        tags = None
-        name = ' '.join(game_in)
+        # Why use argparse when you can write our own!
+        kwargs = {}
+        not_kwargs = []
+        for a in args:
+            if a.startswith('--') or a.startswith('-'):
+                a = a.lstrip('--').lstrip('-')
+                kwargs[a.split('=')[0]] = a.split('=')[1]
+            else:
+                not_kwargs.append(a)
+        args = not_kwargs
+
+        if kwargs:
+            name = kwargs.get('name', None)
+            url = kwargs.get('url', None)
+            min_players = kwargs.get('min', None)
+            max_players = kwargs.get('max', None)
+            party = kwargs.get('party', 0)
+
+        if (max_players and not min_players) or (min_players and not max_players):
+            return await ctx.send(f'Error: -max and -min must be supplied as a pair')
+
+        # broken for games that start with http
+        if not url:
+            for a in args:
+                if a.startswith('http'):
+                    url = a
+        if not name:
+            name = ' '.join([i for i in args if not i.startswith('http')])
 
         if not url:
             async with ctx.typing():
                 url = await search_game(name)
+
         if url:
             # Search steam for game info
             if 'store.steampowered.com' in url:
@@ -55,28 +82,25 @@ class GameTrackerCog(commands.Cog, name='Game Tracker'):
                     steam_id = steam_id[0].replace('/', '')
 
                 async with ctx.typing():
-                    _name, release_date_str, release_date_obj, price, tags = await parse_steam_game_info_for_db_model(
-                        get_steam_game_info(steam_id))
+                    data = await get_steam_game_info(steam_id)
+                    _name, release_date_str, release_date_obj, price, tags = await parse_steam_game_info(data)
             else:
                 _name = url
-            if _name:
+            if _name and not name:
                 name = _name
 
-        # Check if game already in db in some other form
-        # this should be a filter but i don't want to look up how to do that with peewee
-        for check in [
-            lambda: Game.get(Game.name == name.lower()),
-            lambda: Game.get(Game.steam_id == steam_id),
-            lambda: Game.get(Game.url == url),
-        ]:
-            try:
-                _ = check()
-                return await ctx.send(f'Looks like "{name}" is already on the list')
-            except Game.DoesNotExist:
-                continue
+        # print(name, url, steam_id, min_players, max_players, party)
+
+        if list(Game.select().where(
+            (Game.name == name.lower()) |
+            ((Game.steam_id == steam_id) & Game.steam_id.is_null(False)) |
+            (Game.url == url))
+        ):
+            return await ctx.send(f'Looks like "{name}" is already on the list')
 
         g = Game.create(name=name.lower(), added_by=ctx.author.id, url=url, steam_id=steam_id,
-                        release_date_str=release_date_str, release_date_obj=release_date_obj, price=price, tags=tags)
+                        release_date_str=release_date_str, release_date_obj=release_date_obj, price=price, tags=tags,
+                        min_players=min_players, max_players=max_players, party=party)
         _ = f'Added {g.name.title()} ({g.url})' if g.url else f'Added {g.name.title()}'
         return await ctx.send(_)
 
@@ -151,9 +175,8 @@ class GameTrackerCog(commands.Cog, name='Game Tracker'):
         return await ctx.send(embed=embed)
 
     @commands.command()
-    async def finished(self, ctx):
+    async def finished(self, ctx, *args):
         """A list of finished games"""
-
         embed = discord.Embed(
             title='Finished Games',
             colour=discord.Colour(0xE5E242),
