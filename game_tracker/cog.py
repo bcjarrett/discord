@@ -5,7 +5,8 @@ import discord
 from discord.ext import commands
 
 from .models import Game
-from .util import _add_games_list_to_embed, get_steam_game_info, search_game, update_game
+from .util import add_games_list_to_embed, parse_steam_game_info_for_db_model, get_steam_game_info, search_game, \
+    update_game
 
 
 class GameTrackerCog(commands.Cog, name='Game Tracker'):
@@ -54,7 +55,8 @@ class GameTrackerCog(commands.Cog, name='Game Tracker'):
                     steam_id = steam_id[0].replace('/', '')
 
                 async with ctx.typing():
-                    _name, release_date_str, release_date_obj, price, tags = await get_steam_game_info(steam_id)
+                    _name, release_date_str, release_date_obj, price, tags = await parse_steam_game_info_for_db_model(
+                        get_steam_game_info(steam_id))
             else:
                 _name = url
             if _name:
@@ -120,73 +122,44 @@ class GameTrackerCog(commands.Cog, name='Game Tracker'):
             return await ctx.send(f'Delete can only be performed by db admin')
 
     @commands.command()
-    async def games(self, ctx):
+    async def games(self, ctx, num_players=None):
         """A list of games to play"""
         embed = self._embed('Master Games List')
-        new_released_games = Game.manager().new().released().call()
-        unreleased_games = Game.manager().unreleased().call()
-        started_games = Game.manager().started().call()
+        new_released_games = Game.manager().new().released().players(num_players).call()
+        unreleased_games = Game.manager().unreleased().players(num_players).call()
+        started_games = Game.manager().old().players(num_players).call()
 
         for i in [('New', new_released_games),
                   ('Keep Playing', started_games),
                   ('Unreleased', unreleased_games)]:
-            _add_games_list_to_embed(embed, i)
+            add_games_list_to_embed(embed, i)
 
         return await ctx.send(embed=embed)
 
     @commands.command()
-    async def party(self, ctx):
+    async def party(self, ctx, num_players=None):
         """A list of party games to play"""
         embed = self._embed('Party Games List')
-        released_party_games = Game.manager().new().party().released().call()
-        unreleased_party_games = Game.manager().unreleased().party().call()
-        started_party_games = Game.manager().old().party().call()
+        released_party_games = Game.manager().new().party().released().players(num_players).call()
+        unreleased_party_games = Game.manager().unreleased().party().players(num_players).call()
+        started_party_games = Game.manager().old().party().players(num_players).call()
 
         for i in [('Play Now!', released_party_games),
                   ('Play Again!', started_party_games),
                   ('Play Soon!', unreleased_party_games), ]:
-            _add_games_list_to_embed(embed, i)
-        return await ctx.send(embed=embed)
-
-    @commands.command()
-    async def players(self, ctx, num_players):
-        """A list of games to filtered by number of players"""
-        embed = self._embed('Party Games List')
-        released_party_games = Game.manager().new().released().players(num_players).call()
-        unreleased_party_games = Game.manager().unreleased().players(num_players).call()
-        started_party_games = Game.manager().old().players(num_players).call()
-
-        for i in [('Play Now!', released_party_games),
-                  ('Play Again!', started_party_games),
-                  ('Play Soon!', unreleased_party_games), ]:
-            _add_games_list_to_embed(embed, i)
+            add_games_list_to_embed(embed, i)
         return await ctx.send(embed=embed)
 
     @commands.command()
     async def finished(self, ctx):
         """A list of finished games"""
 
-        def make_games_content(games_list):
-            content = ''
-            for g in games_list:
-                if g.url:
-                    content += f'[{g.name.title()}]({g.url}){g.recent_activity}\n'
-                else:
-                    content += f'{g.name.title()}{g.recent_activity}\n'
-            return content
-
         embed = discord.Embed(
             title='Finished Games',
             colour=discord.Colour(0xE5E242),
         )
-        finished_games = Game.select().where(
-            Game.started == True,
-            Game.finished == True
-        ).order_by(-Game.finished_on, Game.name)
-        finished_games_value = make_games_content(finished_games)
-
-        embed.add_field(name='Finished Games', value=finished_games_value,
-                        inline=False) if finished_games_value else None
+        finished_games = Game.manager().finished().call()
+        add_games_list_to_embed(embed, ('All Done', finished_games))
 
         return await ctx.send(embed=embed)
 
@@ -206,6 +179,27 @@ class GameTrackerCog(commands.Cog, name='Game Tracker'):
             for g in Game.select().where(Game.finished != True):
                 await update_game(g)
         await ctx.send(f'Game info updated')
+
+    @commands.command(aliases=['on_sale', 'onsale', 'discount'])
+    async def sale(self, ctx, num_players=None):
+        games = Game.manager().released().new().players(num_players).call()
+        on_sale = []
+        async with ctx.typing():
+            for g in games:
+                if g.steam_id:
+                    steam_data = await get_steam_game_info(g.steam_id)
+                    if steam_data['price_overview']['discount_percent'] != 0:
+                        on_sale.append(g)
+
+        if on_sale:
+            embed = discord.Embed(
+                title='Bargain Games',
+                colour=discord.Colour(0xE5E242),
+            )
+            add_games_list_to_embed(embed, ('On sale:', on_sale))
+            return await ctx.send(embed=embed)
+        else:
+            return await ctx.send(f'Nothing on sale right now')
 
 
 def setup(bot):

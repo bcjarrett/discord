@@ -1,15 +1,16 @@
-import re
 import json
+import re
+
 import aiohttp
 from bs4 import BeautifulSoup
 from dateutil import parser
+from config import conf
 
 headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                   'Chrome/61.0.3163.100 Safari/537.36'}
 
-
-steam_api_url = f'https://store.steampowered.com/api/appdetails?language=en&lang=en&appids='
+steam_api_url = conf['STEAM_API_URL']
 
 
 def content_squinch(content, content_list, length=1000):
@@ -26,7 +27,7 @@ def content_squinch(content, content_list, length=1000):
     return content_list, content[_slice:]
 
 
-def _add_field(_embed, name, value, inline):
+def add_field(_embed, name, value, inline):
     if len(value) > 1000:
         content = value.split('\n')
         final_content = []
@@ -69,6 +70,46 @@ async def search_game(title, number_results=10, language_code='en'):
             return None
 
 
+async def parse_steam_game_info_for_db_model(data):
+    if data:
+        game_name = data['name']
+        tags = []
+        price = None
+        release_date_str = None
+        release_date_obj = None
+
+        # Price
+        if data['is_free']:
+            price = 'Free'
+        else:
+            try:
+                price = data['price_overview']['final_formatted']
+            except KeyError:
+                pass
+
+        # Tags
+        categories = data['categories']
+        cats_we_care_about = [1, 9, 38, 39]
+        for i in categories:
+            for c in cats_we_care_about:
+                if c == i['id']:
+                    tags.append(i['description'])
+
+        # Release Dates
+        try:
+            release_date_str = data['release_date']['date']
+        except KeyError:
+            pass
+        try:
+            release_date_obj = parser.parse(release_date_str)
+        except (parser._parser.ParserError, TypeError):
+            pass
+
+        tags = ', '.join(tags)
+        return game_name, release_date_str, release_date_obj, price, tags
+    return None, None, None, None, None
+
+
 async def get_steam_game_info(app_id):
     async with aiohttp.ClientSession() as session:
 
@@ -79,42 +120,8 @@ async def get_steam_game_info(app_id):
 
                 if content[str(app_id)]['success'] is True:
                     data = content[str(app_id)]['data']
-                    game_name = data['name']
-                    tags = []
-                    price = None
-                    release_date_str = None
-                    release_date_obj = None
-
-                    # Price
-                    if data['is_free']:
-                        price = 'Free'
-                    else:
-                        try:
-                            price = data['price_overview']['final_formatted']
-                        except KeyError:
-                            pass
-
-                    # Tags
-                    categories = data['categories']
-                    cats_we_care_about = [1, 9, 38, 39]
-                    for i in categories:
-                        for c in cats_we_care_about:
-                            if c == i['id']:
-                                tags.append(i['description'])
-
-                    # Release Dates
-                    try:
-                        release_date_str = data['release_date']['date']
-                    except KeyError:
-                        pass
-                    try:
-                        release_date_obj = parser.parse(release_date_str)
-                    except (parser._parser.ParserError, TypeError):
-                        pass
-
-                    tags = ', '.join(tags)
-                    return game_name, release_date_str, release_date_obj, price, tags
-            return None, None, None, None
+                    return data
+            return None
 
 
 async def update_game(game):
@@ -131,7 +138,7 @@ async def update_game(game):
         game.save()
 
 
-def _make_games_content(games_list):
+def make_games_content(games_list):
     content = []
     for g in games_list:
         tags = f'({g.simple_tags})' if g.simple_tags else ''
@@ -142,8 +149,8 @@ def _make_games_content(games_list):
     return '\n'.join(content)
 
 
-def _add_games_list_to_embed(embed, section):
+def add_games_list_to_embed(embed, section):
     """section must be a tuple of the form (header, list_of_game_objects)"""
-    content = _make_games_content(section[1])
-    _add_field(embed, name=section[0], value=content, inline=False) if content else None
+    content = make_games_content(section[1])
+    add_field(embed, name=section[0], value=content, inline=False) if content else None
     return embed

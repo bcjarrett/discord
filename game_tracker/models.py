@@ -29,27 +29,34 @@ class GamesManager:
 
     def released(self):
         self.q = self.q.where(
-            Game.release_date_obj <= (datetime.datetime.now())
+            self._model.release_date_obj <= (datetime.datetime.now())
         )
         return self
 
     def party(self):
         self.q = self.q.where(
-            Game.party_game == 1
+            self._model.party_game == 1
         )
         return self
 
     def unreleased(self):
         self.q = self.q.where(
-            (Game.release_date_obj >= (datetime.datetime.now())) | (Game.release_date_obj.is_null())
+            (self._model.release_date_obj >= (datetime.datetime.now())) | (self._model.release_date_obj.is_null())
+        )
+        return self
+
+    def finished(self):
+        self.q = self.q.where(
+            self._model.finished == 1
         )
         return self
 
     def players(self, num_players):
-        self.q = self.q.where(
-            Game.min_players <= num_players,
-            Game.max_players >= num_players
-        )
+        if num_players:
+            self.q = self.q.where(
+                self._model.min_players <= num_players,
+                self._model.max_players >= num_players
+            )
         return self
 
     def call(self):
@@ -107,7 +114,7 @@ class Game(BaseModel):
             if self.min_players == self.max_players:
                 players = f'{self.min_players} players'
             else:
-                players = f'{self.min_players} - {self.max_players} players'
+                players = f'{self.min_players}-{self.max_players} players'
 
         game_type = None
 

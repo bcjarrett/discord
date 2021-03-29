@@ -41,3 +41,5 @@ conf['VC_IDS'] = [
     797624713165144124,
     818280367618261002
 ]
+
+conf['STEAM_API_URL'] = 'https://store.steampowered.com/api/appdetails?language=en&lang=en&appids='
