@@ -60,7 +60,12 @@ class GamesManager:
         return self
 
     def call(self):
-        return self.q.order_by(self._model.added_on, self._model.name)
+        order_args = [self._model.name]
+        if '"started" = 1' in str(self.q):
+            order_args.insert(0, -self._model.started_on)
+        else:
+            order_args.insert(0, self._model.added_on)
+        return self.q.order_by(*order_args)
 
 
 class Game(BaseModel):

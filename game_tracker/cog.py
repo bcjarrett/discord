@@ -3,6 +3,7 @@ from datetime import datetime
 
 import discord
 from discord.ext import commands
+from discord_argparse import ArgumentConverter, OptionalArgument, RequiredArgument
 
 from .models import Game
 from .util import add_games_list_to_embed, get_steam_game_info, parse_steam_game_info, search_game, \
@@ -209,10 +210,11 @@ class GameTrackerCog(commands.Cog, name='Game Tracker'):
                 await update_game(g)
         await ctx.send(f'Game info updated')
 
-    @commands.command(aliases=['on_sale', 'onsale', 'discount'])
+    @commands.command(aliases=['on_sale', 'deals', 'onsale', 'discount'])
     async def sale(self, ctx, num_players=None):
         games = Game.manager().released().new().players(num_players).call()
         on_sale = []
+        await ctx.send('Checking for deals, deals, deals!')
         async with ctx.typing():
             for g in games:
                 if g.steam_id:
