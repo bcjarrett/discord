@@ -3,7 +3,6 @@ import datetime
 import peewee
 
 from database import BaseModel
-from util import plural
 
 
 class GamesManager:

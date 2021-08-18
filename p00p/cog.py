@@ -9,8 +9,40 @@ from .models import TextCount
 
 class PoopCog(commands.Cog, name='p00p bot core'):
 
+    async def poop(self, message):
+        poop_model = TextCount.get(text='p00p')
+
+        # Positive half-normal dist centered at 0, sd 20. ints only
+        num_poops = round(abs(NormalDist(0, 20).inv_cdf(random.random())))
+        special_numbers = {
+            -1: f'{poop_n(num_poops)}',
+            0: 'Ooops, looks like that was just a fart :wind_blowing_face:',
+            1: ':poop:',
+            69: ':fireworks: :fireworks: 69 :poop: 69 :fireworks: :fireworks: '
+                '\nWE DID IT BOYS! GAME OVER! Please stop at the counter on the way out to collect your prize.'
+                f'\n{poop_n(69, text=":poop:")}'
+        }
+        msg = special_numbers.get(num_poops, special_numbers[-1])
+
+        # Increment counter
+        poop_model.counter += 1
+        poop_model.save()
+
+        poop_model.record_holder = str(message.author.nick)
+        await message.channel.send(msg)
+        if num_poops > poop_model.max_num:
+            poop_model.max_num = num_poops
+            poop_model.save()
+            await message.channel.send(
+                f'Congratulations {message.author.nick}! That\'s a new record! {num_poops} p00ps! Such a big '
+                f'boy! :heart_eyes: :heart_eyes: :heart_eyes: ')
+
     def __init__(self, bot):
         self.bot = bot
+
+    @commands.command()
+    async def p00p(self, ctx):
+        return await self.poop(ctx)
 
     @commands.command(description='Clear p00p counter')
     async def clear(self, ctx):
@@ -48,37 +80,10 @@ class PoopCog(commands.Cog, name='p00p bot core'):
         Send bigger and bigger poops everytime a message is
         In discord :poop: = 💩
         """
-        poop_model = TextCount.get(text='p00p')
-
-        # Positive half-normal dist centered at 0, sd 20. ints only
-        num_poops = round(abs(NormalDist(0, 20).inv_cdf(random.random())))
-        special_numbers = {
-            -1: f'{poop_n(num_poops)}',
-            0: 'Ooops, looks like that was just a fart :wind_blowing_face:',
-            1: ':poop:',
-            69: ':fireworks: :fireworks: 69 :poop: 69 :fireworks: :fireworks: '
-                '\nWE DID IT BOYS! GAME OVER! Please stop at the counter on the way out to collect your prize.'
-                f'\n{poop_n(69, text=":poop:")}'
-        }
-
         if message.author != self.bot.user:
             # Only send message 5% of the time
-            if random.randint(1, 20) == 20:
-                # Match poop_n with message dict, return -1 by default
-                msg = special_numbers.get(num_poops, special_numbers[-1])
-                await message.channel.send(msg)
-
-                # Update max
-                if num_poops > poop_model.max_num:
-                    await message.channel.send(
-                        f'Congratulations {message.author.nick}! That\'s a new record! {num_poops} p00ps! Such a big '
-                        f'boy! :heart_eyes: :heart_eyes: :heart_eyes: ')
-                    poop_model.max_num = num_poops
-                    poop_model.record_holder = str(message.author.nick)
-
-                # Increment counter
-                poop_model.counter += 1
-                poop_model.save()
+            if random.randint(1, 40) == 20:
+                await self.p00p(message)
 
 
 def setup(bot):

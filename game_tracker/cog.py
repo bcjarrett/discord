@@ -3,7 +3,6 @@ from datetime import datetime
 
 import discord
 from discord.ext import commands
-from discord_argparse import ArgumentConverter, OptionalArgument, RequiredArgument
 
 from .models import Game
 from .util import add_games_list_to_embed, get_steam_game_info, parse_steam_game_info, search_game, \
@@ -46,7 +45,10 @@ class GameTrackerCog(commands.Cog, name='Game Tracker'):
         for a in args:
             if a.startswith('--') or a.startswith('-'):
                 a = a.lstrip('--').lstrip('-')
-                kwargs[a.split('=')[0]] = a.split('=')[1]
+                try:
+                    kwargs[a.split('=')[0]] = a.split('=')[1]
+                except IndexError:
+                    return await ctx.send(f'Make sure you put a "=" between each key value pair')
             else:
                 not_kwargs.append(a)
         args = not_kwargs
@@ -58,14 +60,17 @@ class GameTrackerCog(commands.Cog, name='Game Tracker'):
             max_players = kwargs.get('max', None)
             party = bool(kwargs.get('party', 0))
 
+        print(kwargs)
+
         # Lazy validation
         if (max_players and not min_players) or (min_players and not max_players):
             return await ctx.send(f'Error: -max and -min must be supplied as a pair')
-        try:
-            int(max_players)
-            int(min_players)
-        except ValueError:
-            return await ctx.send(f'Error: -max and -min must be integers')
+        elif max_players and min_players:
+            try:
+                int(max_players)
+                int(min_players)
+            except (ValueError, TypeError):
+                return await ctx.send(f'Error: -max and -min must be integers')
 
         # broken for games that start with http
         if not url:
@@ -97,12 +102,13 @@ class GameTrackerCog(commands.Cog, name='Game Tracker'):
                 name = _name
 
         # print(name, url, steam_id, min_players, max_players, party)
-
-        if list(Game.select().where(
+        _ = list(Game.select().where(
             (Game.name == name.lower()) |
-            ((Game.steam_id == steam_id) & Game.steam_id.is_null(False)) |
-            (Game.url == url))
-        ):
+            ((Game.steam_id == steam_id) & Game.steam_id.is_null(False))
+        )
+        )
+        if _:
+            print(_)
             return await ctx.send(f'Looks like "{name}" is already on the list')
 
         g = Game.create(name=name.lower(), added_by=ctx.author.id, url=url, steam_id=steam_id,

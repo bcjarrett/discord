@@ -43,3 +43,39 @@ conf['VC_IDS'] = [
 ]
 
 conf['STEAM_API_URL'] = 'https://store.steampowered.com/api/appdetails?language=en&lang=en&appids='
+
+conf['LOGGING_CONFIG'] = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'standard': {
+            'format': '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
+        },
+    },
+    'handlers': {
+        'stream': {
+            'level': 'INFO',
+            'formatter': 'standard',
+            'class': 'logging.StreamHandler',
+            'stream': 'ext://sys.stdout'
+        },
+        'file': {
+            'level': 'INFO',
+            'formatter': 'standard',
+            'class': 'logging.FileHandler',
+            'filename': './log.log'
+        }
+    },
+    'loggers': {
+        '': {
+            'handlers': ['stream', 'file'],
+            'level': 'INFO',
+            'propagate': False
+        },
+    }
+}
+
+# Music settings
+conf['MAX_VOLUME'] = 250
+conf['VOTE_SKIP'] = True
+conf['VOTE_SKIP_RATIO'] = .5

@@ -1,3 +1,4 @@
+import logging
 import os
 import random
 
@@ -5,8 +6,9 @@ import random
 from discord.ext import commands
 
 from util import populous_channel
-# from config import conf
 from .models import Reset
+
+logger = logging.getLogger(__name__)
 
 reset_message = f'Next time I\'ll do better...'
 
@@ -16,6 +18,7 @@ class MgmtCommandsCog(commands.Cog, name='Management Commands'):
     @commands.command(aliases=['restart', 'reboot', 'stop_crashing'])
     async def reset(self, ctx):
         """Restarts the bot"""
+        logger.info('Resetting bot')
         await ctx.send(reset_message)
         Reset.create(channel_id=ctx.channel.id)
         async with ctx.typing():
