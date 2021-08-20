@@ -1,23 +1,29 @@
 """
-Adapted entirely from https://github.com/joek13/py-music-bot
+All credit to https://github.com/joek13/py-music-bot
 """
 
-from discord.ext import commands
-import discord
 import asyncio
-import youtube_dl
 import logging
 import math
-from .video import Video
-from config import conf
+import random
 
+import discord
+import youtube_dl
+from discord.ext import commands
+
+from config import conf
+from .video import Video
+from .models import Playlist
+
+logger = logging.getLogger(__name__)
 
 # TODO: abstract FFMPEG options into their own file?
 FFMPEG_BEFORE_OPTS = '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5'
 """
 Command line options to pass to `ffmpeg` before the `-i`.
 
-See https://stackoverflow.com/questions/43218292/youtubedl-read-error-with-discord-py/44490434#44490434 for more information.
+See https://stackoverflow.com/questions/43218292/youtubedl-read-error-with-discord-py/44490434#44490434 for more 
+information.
 Also, https://ffmpeg.org/ffmpeg-protocols.html for command line option reference.
 """
 
@@ -161,7 +167,7 @@ class MusicCog(commands.Cog, name='Music'):
             member for member in channel.members if not member.bot
         ])  # don't count bots
         if (float(len(state.skip_votes)) /
-                users_in_channel) >= conf["vote_skip_ratio"]:
+            users_in_channel) >= conf["vote_skip_ratio"]:
             # enough members have voted to skip, so skip the song
             logging.info(f"Enough votes, skipping...")
             channel.guild.voice_client.stop()
@@ -191,7 +197,7 @@ class MusicCog(commands.Cog, name='Music'):
         message = await ctx.send("", embed=state.now_playing.get_embed())
         await self._add_reaction_controls(message)
 
-    @commands.command(aliases=["q", "playlist"])
+    @commands.command(aliases=["q"])
     @commands.guild_only()
     @commands.check(audio_playing)
     async def queue(self, ctx):
@@ -204,7 +210,7 @@ class MusicCog(commands.Cog, name='Music'):
         if len(queue) > 0:
             message = [f"{len(queue)} songs in queue:"]
             message += [
-                f"  {index+1}. **{song.title}** (requested by **{song.requested_by.name}**)"
+                f"  {index + 1}. **{song.title}** (requested by **{song.requested_by.name}**)"
                 for (index, song) in enumerate(queue)
             ]  # add individual songs
             return "\n".join(message)
@@ -237,7 +243,7 @@ class MusicCog(commands.Cog, name='Music'):
 
     @commands.command(brief="Plays audio from <url>.")
     @commands.guild_only()
-    async def play(self, ctx, *, url):
+    async def play(self, ctx, *, url, embed=True):
         """Plays audio hosted at <url> (or performs a search for <url> and plays the first result)."""
 
         client = ctx.guild.voice_client
@@ -247,14 +253,15 @@ class MusicCog(commands.Cog, name='Music'):
             try:
                 video = Video(url, ctx.author)
             except youtube_dl.DownloadError as e:
-                logging.warn(f"Error downloading video: {e}")
+                logging.warning(f"Error downloading video: {e}")
                 await ctx.send(
-                    "There was an error downloading your video, sorry.")
+                    "There was an error downloading your video, sorry :(.")
                 return
             state.playlist.append(video)
-            message = await ctx.send(
-                "Added to queue.", embed=video.get_embed())
-            await self._add_reaction_controls(message)
+            if embed:
+                message = await ctx.send(
+                    "Added to queue.", embed=video.get_embed())
+                await self._add_reaction_controls(message)
         else:
             if ctx.author.voice is not None and ctx.author.voice.channel is not None:
                 channel = ctx.author.voice.channel
@@ -266,8 +273,9 @@ class MusicCog(commands.Cog, name='Music'):
                     return
                 client = await channel.connect()
                 self._play_song(client, state, video)
-                message = await ctx.send("", embed=video.get_embed())
-                await self._add_reaction_controls(message)
+                if embed:
+                    message = await ctx.send("", embed=video.get_embed())
+                    await self._add_reaction_controls(message)
                 logging.info(f"Now playing '{video.title}'")
             else:
                 raise commands.CommandError(
@@ -282,7 +290,8 @@ class MusicCog(commands.Cog, name='Music'):
             except discord.errors.Forbidden:
                 pass
             if message.guild and message.guild.voice_client:
-                user_in_channel = user.voice and user.voice.channel and user.voice.channel == message.guild.voice_client.channel
+                user_in_channel = user.voice and user.voice.channel and user.voice.channel == \
+                                  message.guild.voice_client.channel
                 permissions = message.channel.permissions_for(user)
                 guild = message.guild
                 state = self.get_state(guild)
@@ -300,7 +309,9 @@ class MusicCog(commands.Cog, name='Music'):
                             0, state.now_playing
                         )  # insert current song at beginning of playlist
                         client.stop()  # skip ahead
-                elif reaction.emoji == "⏭" and conf["vote_skip"] and user_in_channel and message.guild.voice_client and message.guild.voice_client.channel:
+                elif reaction.emoji == "⏭" and conf[
+                    "vote_skip"] and user_in_channel and message.guild.voice_client and \
+                        message.guild.voice_client.channel:
                     # ensure that skip was pressed, that vote skipping is
                     # enabled, the user is in the channel, and that the bot is
                     # in a voice channel
@@ -323,6 +334,56 @@ class MusicCog(commands.Cog, name='Music'):
         CONTROLS = ["⏮", "⏯", "⏭"]
         for control in CONTROLS:
             await message.add_reaction(control)
+
+    async def _add_multiple_songs(self, ctx, song_list, max_length=20):
+        for song in song_list[:max_length]:
+            print(song)
+            async with ctx.typing():
+                await self.play(ctx, url=song, embed=False)
+        embed = discord.Embed(
+            title='Added playlist to Queue')
+        embed.set_footer(
+            text=f"Requested by {ctx.author.name}",
+            icon_url=ctx.author.avatar_url)
+        message = await ctx.send("", embed=embed)
+        await self._add_reaction_controls(message)
+
+    @commands.command(aliases=["pl"])
+    async def playlist(self, ctx, *, playlist_name, shuffle=False):
+        try:
+            playlist = Playlist.get(name=playlist_name)
+        except Playlist.DoesNotExist:
+            playlists = Playlist.select().where(Playlist.name.contains(playlist_name))
+            if len(playlists) == 0:
+                return await ctx.send('No matching playlist found')
+            if len(playlists) == 1:
+                playlist = playlists.first()
+            else:
+                message = [f"**Found Multiple Matching Playlists - Please Specify:**"]
+                message += [
+                    f"  {index + 1}. **{playlist.name}** "
+                    for (index, playlist) in enumerate(playlists)
+                ]
+                return await ctx.send("\n".join(message))
+        songs = playlist.get_songs()
+        song_list = [i.search_term for i in songs]
+        if shuffle:
+            random.shuffle(song_list)
+        await self._add_multiple_songs(ctx, song_list)
+
+    @commands.command(aliases=['spl'])
+    async def shuffle_playlist(self, ctx, *, playlist_name):
+        await self.playlist(ctx, playlist_name=playlist_name, shuffle=True)
+
+    @commands.command(aliases=["pls"])
+    async def playlists(self, ctx):
+        playlists = list(Playlist.select())
+        message = [f"**Available Playlists:**"]
+        message += [
+            f"  {index + 1}. **{playlist.name}** "
+            for (index, playlist) in enumerate(playlists)
+        ]
+        await ctx.send("\n".join(message))
 
 
 class GuildState:
