@@ -4,7 +4,11 @@ from database import BaseModel
 
 
 class Playlist(BaseModel):
-    name = peewee.CharField(max_length=255, unique=True)
+    name = peewee.CharField(max_length=255)
+    spotify_id = peewee.CharField(max_length=255)
+    spotify_url = peewee.CharField(max_length=255)
+    owner = peewee.CharField(max_length=255)
+    image_url = peewee.CharField(max_length=255)
 
     def __str__(self):
         return str(self.name)

@@ -6,14 +6,16 @@ import asyncio
 import logging
 import math
 import random
+import urllib.parse
 
 import discord
 import youtube_dl
 from discord.ext import commands
 
 from config import conf
-from .video import Video
 from .models import Playlist
+from .video import Video
+from .util import SpotifyPlaylist
 
 logger = logging.getLogger(__name__)
 
@@ -202,6 +204,7 @@ class MusicCog(commands.Cog, name='Music'):
     @commands.check(audio_playing)
     async def queue(self, ctx):
         """Display the current play queue."""
+        # TODO: fails for long lists
         state = self.get_state(ctx.guild)
         await ctx.send(self._queue_text(state.playlist))
 
@@ -335,27 +338,26 @@ class MusicCog(commands.Cog, name='Music'):
         for control in CONTROLS:
             await message.add_reaction(control)
 
-    async def _add_multiple_songs(self, ctx, song_list, max_length=20):
+    async def _add_multiple_songs(self, ctx, song_list, playlist_title, max_length=20):
         for song in song_list[:max_length]:
-            print(song)
+            logging.info(f'Adding {song} to the queue')
             async with ctx.typing():
                 await self.play(ctx, url=song, embed=False)
         embed = discord.Embed(
-            title='Added playlist to Queue')
+            title=f'**{playlist_title}** added to queue')
         embed.set_footer(
             text=f"Requested by {ctx.author.name}",
             icon_url=ctx.author.avatar_url)
         message = await ctx.send("", embed=embed)
         await self._add_reaction_controls(message)
 
-    @commands.command(aliases=["pl"])
-    async def playlist(self, ctx, *, playlist_name, shuffle=False):
+    def _search_for_playlist(self, ctx, playlist_name):
         try:
             playlist = Playlist.get(name=playlist_name)
         except Playlist.DoesNotExist:
             playlists = Playlist.select().where(Playlist.name.contains(playlist_name))
             if len(playlists) == 0:
-                return await ctx.send('No matching playlist found')
+                return 'No matching playlist found'
             if len(playlists) == 1:
                 playlist = playlists.first()
             else:
@@ -364,19 +366,34 @@ class MusicCog(commands.Cog, name='Music'):
                     f"  {index + 1}. **{playlist.name}** "
                     for (index, playlist) in enumerate(playlists)
                 ]
-                return await ctx.send("\n".join(message))
-        songs = playlist.get_songs()
-        song_list = [i.search_term for i in songs]
-        if shuffle:
-            random.shuffle(song_list)
-        await self._add_multiple_songs(ctx, song_list)
+                return "\n".join(message)
+        return playlist
+
+    @staticmethod
+    async def _return_pl_search_message(ctx, message):
+        return await ctx.send('message')
+
+    @commands.command(aliases=["pl"])
+    async def playlist(self, ctx, *, playlist_name, shuffle=False):
+        """Adds the first 20 songs from the selected playlist to the queue"""
+        playlist = self._search_for_playlist(ctx, playlist_name)
+        if type(playlist) == str:
+            return await self._return_pl_search_message(ctx, playlist)
+        else:
+            songs = playlist.get_songs()
+            song_list = [i.search_term for i in songs]
+            if shuffle:
+                random.shuffle(song_list)
+            await self._add_multiple_songs(ctx, song_list, playlist.name)
 
     @commands.command(aliases=['spl'])
     async def shuffle_playlist(self, ctx, *, playlist_name):
+        """Shuffles a playlist"""
         await self.playlist(ctx, playlist_name=playlist_name, shuffle=True)
 
     @commands.command(aliases=["pls"])
     async def playlists(self, ctx):
+        """Lists available playlists"""
         playlists = list(Playlist.select())
         message = [f"**Available Playlists:**"]
         message += [
@@ -384,6 +401,58 @@ class MusicCog(commands.Cog, name='Music'):
             for (index, playlist) in enumerate(playlists)
         ]
         await ctx.send("\n".join(message))
+
+    @commands.command(aliases=['import', 'impl'])
+    async def import_playlist(self, ctx, url):
+        """Imports a new playlist from a spotify URL"""
+        url_parse = urllib.parse.urlparse(url)
+        cleaned_url = url_parse._replace(params='')._replace(query='')._replace(fragment='')
+        if url_parse.netloc == 'open.spotify.com':
+            logger.info(f'Attempting to import playlist from {url}')
+            spotify_playlist = SpotifyPlaylist(cleaned_url.geturl())
+            if spotify_playlist:
+                logger.info(f'Adding playlist songs to database')
+                spotify_playlist.add_songs_to_db()
+                embed = discord.Embed(
+                    title=f'Successfully imported {spotify_playlist.name}!')
+                embed.description = f'Added {spotify_playlist.song_count} songs to the database\n'
+                embed.description += f'Play your new playlist by sending the command \n?pl {spotify_playlist.name}'
+                if spotify_playlist.image_url:
+                    embed.set_image(url=spotify_playlist.image_url)
+                embed.set_footer(
+                    text=f"Requested by {ctx.author.name}",
+                    icon_url=ctx.author.avatar_url)
+                return await ctx.send('', embed=embed)
+            else:
+                logger.warning(f'{spotify_playlist.error_message}')
+                return await ctx.send(f'Failed to download playlist:\n{spotify_playlist.error_message}')
+
+    @commands.command(aliases=['upl'])
+    async def update_playlist(self, ctx, *, playlist_name, playlist=None):
+        """Updates an existing playlist"""
+        playlist = self._search_for_playlist(ctx, playlist_name)
+        if type(playlist) == str:
+            return await self._return_pl_search_message(ctx, playlist)
+        else:
+            old_num_songs = len(playlist.get_songs())
+            spotify_playlist = SpotifyPlaylist(playlist.spotify_url)
+            logging.info(f'Updating {playlist.name}')
+            spotify_playlist.add_songs_to_db()
+            playlist = self._search_for_playlist(ctx, playlist_name)
+            new_num_songs = len(playlist.get_songs())
+            if old_num_songs == new_num_songs:
+                return await ctx.send(f'No new songs to import')
+            else:
+                embed = discord.Embed(
+                    title=f'Successfully imported {spotify_playlist.name}!')
+                embed.description = f'Imported {new_num_songs - old_num_songs} new songs to the database\n'
+                embed.description += f'Play your new playlist by sending the command \n?pl {spotify_playlist.name}'
+                if spotify_playlist.image_url:
+                    embed.set_image(url=spotify_playlist.image_url)
+                embed.set_footer(
+                    text=f"Requested by {ctx.author.name}",
+                    icon_url=ctx.author.avatar_url)
+                return await ctx.send('', embed=embed)
 
 
 class GuildState:
