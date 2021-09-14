@@ -5,8 +5,8 @@ from database import BaseModel
 
 class Playlist(BaseModel):
     name = peewee.CharField(max_length=255)
-    spotify_id = peewee.CharField(max_length=255)
-    spotify_url = peewee.CharField(max_length=255)
+    web_id = peewee.CharField(max_length=255)
+    url = peewee.CharField(max_length=255)
     owner = peewee.CharField(max_length=255)
     image_url = peewee.CharField(max_length=255)
 

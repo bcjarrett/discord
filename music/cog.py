@@ -15,7 +15,8 @@ from discord.ext import commands
 from config import conf
 from .models import Playlist
 from .video import Video
-from .util import SpotifyPlaylist
+from .spotify import SpotifyPlaylist
+from .soundcloud import SoundCloudPlaylist
 
 logger = logging.getLogger(__name__)
 
@@ -220,6 +221,14 @@ class MusicCog(commands.Cog, name='Music'):
         else:
             return "The play queue is empty."
 
+    @commands.command(aliases=["sq"])
+    @commands.guild_only()
+    @commands.check(audio_playing)
+    async def suffle_queue(self, ctx):
+        """Shuffles the current song queue"""
+        random.shuffle(self.get_state(ctx.guild).playlist)
+        return await ctx.send('Queue Shuffled!')
+
     @commands.command(aliases=["cq"])
     @commands.guild_only()
     @commands.check(audio_playing)
@@ -246,27 +255,28 @@ class MusicCog(commands.Cog, name='Music'):
 
     @commands.command(brief="Plays audio from <url>.")
     @commands.guild_only()
-    async def play(self, ctx, *, url, embed=True):
+    async def play(self, ctx, *, url, embed=True, song=False):
         """Plays audio hosted at <url> (or performs a search for <url> and plays the first result)."""
+        async with ctx.typing():
+            client = ctx.guild.voice_client
+            state = self.get_state(ctx.guild)  # get the guild's state
 
-        client = ctx.guild.voice_client
-        state = self.get_state(ctx.guild)  # get the guild's state
+            # TODO Desperately needs a refactoring
+            async def yt_search_add_to_queue():
+                try:
+                    video = Video(url, ctx.author)
+                except youtube_dl.DownloadError as e:
+                    logging.warning(f"Error downloading video: {e}")
+                    await ctx.send(
+                        "There was an error downloading your video, sorry :(.")
+                    return
+                state.playlist.append(video)
+                if embed:
+                    message = await ctx.send(
+                        "Added to queue.", embed=video.get_embed())
+                    await self._add_reaction_controls(message)
 
-        if client and client.channel:
-            try:
-                video = Video(url, ctx.author)
-            except youtube_dl.DownloadError as e:
-                logging.warning(f"Error downloading video: {e}")
-                await ctx.send(
-                    "There was an error downloading your video, sorry :(.")
-                return
-            state.playlist.append(video)
-            if embed:
-                message = await ctx.send(
-                    "Added to queue.", embed=video.get_embed())
-                await self._add_reaction_controls(message)
-        else:
-            if ctx.author.voice is not None and ctx.author.voice.channel is not None:
+            async def yt_search_play():
                 channel = ctx.author.voice.channel
                 try:
                     video = Video(url, ctx.author)
@@ -280,9 +290,30 @@ class MusicCog(commands.Cog, name='Music'):
                     message = await ctx.send("", embed=video.get_embed())
                     await self._add_reaction_controls(message)
                 logging.info(f"Now playing '{video.title}'")
+
+            if client and client.channel:
+                if song:
+                    return await yt_search_add_to_queue()
+                else:
+                    web_playlist = self._import_playlist(url)
+                    if type(web_playlist) == str:
+                        return await yt_search_add_to_queue()
+                    else:
+                        return await self._successful_playlist_import_text(ctx, web_playlist)
             else:
-                raise commands.CommandError(
-                    "You need to be in a voice channel to do that.")
+                if ctx.author.voice is not None and ctx.author.voice.channel is not None:
+                    if song:
+                        return await yt_search_play()
+                    else:
+                        web_playlist = self._import_playlist(url)
+                        if type(web_playlist) == str:
+                            return await yt_search_play()
+                        else:
+                            return await self._successful_playlist_import_text(ctx, web_playlist)
+
+                else:
+                    raise commands.CommandError(
+                        "You need to be in a voice channel to do that.")
 
     async def on_reaction_add(self, reaction, user):
         """Responds to reactions added to the bot's messages, allowing reactions to control playback."""
@@ -342,7 +373,7 @@ class MusicCog(commands.Cog, name='Music'):
         for song in song_list[:max_length]:
             logging.info(f'Adding {song} to the queue')
             async with ctx.typing():
-                await self.play(ctx, url=song, embed=False)
+                await self.play(ctx, url=song, embed=False, song=True)
         embed = discord.Embed(
             title=f'**{playlist_title}** added to queue')
         embed.set_footer(
@@ -371,25 +402,32 @@ class MusicCog(commands.Cog, name='Music'):
 
     @staticmethod
     async def _return_pl_search_message(ctx, message):
-        return await ctx.send('message')
+        return await ctx.send(message)
+
+    async def _play_playlist(self, ctx, playlist, shuffle=False):
+        songs = playlist.get_songs()
+        logger.debug(f'Adding songs to playlist {songs}')
+        song_list = [i.search_term for i in songs]
+        if shuffle:
+            random.shuffle(song_list)
+        await self._add_multiple_songs(ctx, song_list, playlist.name)
 
     @commands.command(aliases=["pl"])
-    async def playlist(self, ctx, *, playlist_name, shuffle=False):
+    async def playlist(self, ctx, *, playlist_name):
         """Adds the first 20 songs from the selected playlist to the queue"""
+        logger.info(f'Searching for playlist "{playlist_name}"')
         playlist = self._search_for_playlist(ctx, playlist_name)
         if type(playlist) == str:
-            return await self._return_pl_search_message(ctx, playlist)
+            logger.warning(f'Error finding playlist {playlist.error_message}')
+            return await self._return_pl_search_message(ctx, playlist.error_message)
         else:
-            songs = playlist.get_songs()
-            song_list = [i.search_term for i in songs]
-            if shuffle:
-                random.shuffle(song_list)
-            await self._add_multiple_songs(ctx, song_list, playlist.name)
+            return await self._play_playlist(ctx, playlist)
 
     @commands.command(aliases=['spl'])
     async def shuffle_playlist(self, ctx, *, playlist_name):
         """Shuffles a playlist"""
-        await self.playlist(ctx, playlist_name=playlist_name, shuffle=True)
+        playlist = self._search_for_playlist(ctx, playlist_name)
+        await self._play_playlist(ctx, playlist, shuffle=True)
 
     @commands.command(aliases=["pls"])
     async def playlists(self, ctx):
@@ -402,30 +440,48 @@ class MusicCog(commands.Cog, name='Music'):
         ]
         await ctx.send("\n".join(message))
 
+    async def _successful_playlist_import_text(self, ctx, web_playlist):
+        embed = discord.Embed(
+            title=f'Successfully imported {web_playlist.name}!')
+        embed.description = f'Added {web_playlist.song_count} songs to the database\n'
+        embed.description += f'Play your new playlist by sending the command \n?pl {web_playlist.name}'
+        if web_playlist.image_url:
+            embed.set_image(url=web_playlist.image_url)
+        embed.set_footer(
+            text=f"Requested by {ctx.author.name}",
+            icon_url=ctx.author.avatar_url)
+        await ctx.send('', embed=embed)
+        return await self._play_playlist(ctx, web_playlist.db_playlist)
+
     @commands.command(aliases=['import', 'impl'])
     async def import_playlist(self, ctx, url):
         """Imports a new playlist from a spotify URL"""
+        web_playlist = self._import_playlist(url)
+        if type(web_playlist) == str:
+            return await ctx.send(web_playlist)
+        else:
+            return await self._successful_playlist_import_text(ctx, web_playlist)
+
+    @staticmethod
+    def _import_playlist(url):
+        """Imports a new playlist from a spotify URL"""
         url_parse = urllib.parse.urlparse(url)
         cleaned_url = url_parse._replace(params='')._replace(query='')._replace(fragment='')
+        logger.info(f'Attempting to import playlist from {url}')
         if url_parse.netloc == 'open.spotify.com':
-            logger.info(f'Attempting to import playlist from {url}')
-            spotify_playlist = SpotifyPlaylist(cleaned_url.geturl())
-            if spotify_playlist:
-                logger.info(f'Adding playlist songs to database')
-                spotify_playlist.add_songs_to_db()
-                embed = discord.Embed(
-                    title=f'Successfully imported {spotify_playlist.name}!')
-                embed.description = f'Added {spotify_playlist.song_count} songs to the database\n'
-                embed.description += f'Play your new playlist by sending the command \n?pl {spotify_playlist.name}'
-                if spotify_playlist.image_url:
-                    embed.set_image(url=spotify_playlist.image_url)
-                embed.set_footer(
-                    text=f"Requested by {ctx.author.name}",
-                    icon_url=ctx.author.avatar_url)
-                return await ctx.send('', embed=embed)
-            else:
-                logger.warning(f'{spotify_playlist.error_message}')
-                return await ctx.send(f'Failed to download playlist:\n{spotify_playlist.error_message}')
+            web_playlist = SpotifyPlaylist(url)
+        elif url_parse.netloc == 'soundcloud.com':
+            web_playlist = SoundCloudPlaylist(url)
+        else:
+            logger.warning(f'Cannot download playlist from {url}')
+            return f'Failed to import playlist, please check your URL. ' \
+                   f'Only spotify and soundcloud are currently supported'
+        if web_playlist:
+            logger.info(f'Adding playlist songs to database')
+            web_playlist.add_songs_to_db()
+            return web_playlist
+        else:
+            return f'Failed to download playlist: {web_playlist.error_message}\nThis is probably a Ben problem.'
 
     @commands.command(aliases=['upl'])
     async def update_playlist(self, ctx, *, playlist_name, playlist=None):
