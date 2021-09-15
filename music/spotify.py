@@ -42,7 +42,6 @@ class SpotifyPlaylist(WebPlaylist):
             self.url = self.data['external_urls']['spotify']
             self.image_url = self._parse_image_url()
             self.tracks = self._get_tracks()
-            self.song_count = len(self.tracks)
         except spotipy.exceptions.SpotifyException as e:
             self.error_message = e
 
@@ -97,7 +96,7 @@ class SpotifyPlaylist(WebPlaylist):
             artists = track[1]
             url = None
             track_info.append((url, name, artists))
-        return tracks
+        return track_info
 
     def _parse_image_url(self):
         try:

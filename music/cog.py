@@ -256,12 +256,11 @@ class MusicCog(commands.Cog, name='Music'):
     @commands.command(brief="Plays audio from <url>.")
     @commands.guild_only()
     async def play(self, ctx, *, url, embed=True, song=False):
-        """Plays audio hosted at <url> (or performs a search for <url> and plays the first result)."""
+        """Plays audio or playlist hosted at <url> (or performs a search for <url> and plays the first result)."""
         async with ctx.typing():
             client = ctx.guild.voice_client
             state = self.get_state(ctx.guild)  # get the guild's state
 
-            # TODO Desperately needs a refactoring
             async def yt_search_add_to_queue():
                 try:
                     video = Video(url, ctx.author)
@@ -281,6 +280,7 @@ class MusicCog(commands.Cog, name='Music'):
                 try:
                     video = Video(url, ctx.author)
                 except youtube_dl.DownloadError as e:
+                    logging.warning(f"Error downloading video: {e}")
                     await ctx.send(
                         "There was an error downloading your video, sorry.")
                     return
@@ -292,28 +292,20 @@ class MusicCog(commands.Cog, name='Music'):
                 logging.info(f"Now playing '{video.title}'")
 
             if client and client.channel:
-                if song:
-                    return await yt_search_add_to_queue()
-                else:
-                    web_playlist = self._import_playlist(url)
-                    if type(web_playlist) == str:
-                        return await yt_search_add_to_queue()
-                    else:
-                        return await self._successful_playlist_import_text(ctx, web_playlist)
+                fn = yt_search_add_to_queue
             else:
-                if ctx.author.voice is not None and ctx.author.voice.channel is not None:
-                    if song:
-                        return await yt_search_play()
-                    else:
-                        web_playlist = self._import_playlist(url)
-                        if type(web_playlist) == str:
-                            return await yt_search_play()
-                        else:
-                            return await self._successful_playlist_import_text(ctx, web_playlist)
-
-                else:
+                if not ctx.author.voice or not ctx.author.voice.channel:
                     raise commands.CommandError(
                         "You need to be in a voice channel to do that.")
+                fn = yt_search_play
+            if song:
+                return await fn()
+            else:
+                web_playlist = self._import_playlist(url)
+                if type(web_playlist) == str:
+                    return await fn()
+                else:
+                    return await self._successful_playlist_import_text(ctx, web_playlist)
 
     async def on_reaction_add(self, reaction, user):
         """Responds to reactions added to the bot's messages, allowing reactions to control playback."""

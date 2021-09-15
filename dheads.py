@@ -40,18 +40,21 @@ if __name__ == '__main__':
 
 @bot.event
 async def on_ready():
-    print(f'\nLogged in as: {bot.user.name} - {bot.user.id}\nVersion: {discord.__version__}\n')
-    print(f'Connected to {[g.name for g in bot.guilds]}')
+    logger.info(f'\nLogged in as: {bot.user.name} - {bot.user.id}\nVersion: {discord.__version__}\n')
+    logger.info(f'Connected to {[g.name for g in bot.guilds]}')
 
     # Figure out where we want to send the "booted up" message
-    channel_id = Reset.select().order_by(Reset.added_on.desc()).first().channel_id
-    channel = bot.get_channel(channel_id)
-    last_msg = await channel.history().find(lambda m: m.author.id == bot.user.id)
-    startup_msg = 'Successfully Started Up :thumbsup:'
-    if last_msg.clean_content == reset_message:
-        await last_msg.edit(content=startup_msg)
-    else:
-        await channel.send(startup_msg)
+    try:
+        channel_id = Reset.select().order_by(Reset.added_on.desc()).first().channel_id
+        channel = bot.get_channel(channel_id)
+        last_msg = await channel.history().find(lambda m: m.author.id == bot.user.id)
+        startup_msg = 'Successfully Started Up :thumbsup:'
+        if last_msg.clean_content == reset_message:
+            await last_msg.edit(content=startup_msg)
+        else:
+            await channel.send(startup_msg)
+    except AttributeError:
+        pass
 
     await bot.change_presence(activity=discord.Game(name="Oblivion"))
 
