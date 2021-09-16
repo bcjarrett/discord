@@ -15,8 +15,7 @@ from discord.ext import commands
 from config import conf
 from .models import Playlist
 from .video import Video
-from .spotify import SpotifyPlaylist
-from .soundcloud import SoundCloudPlaylist
+from .web_playlists import SpotifyPlaylist, SoundCloudPlaylist, YoutubePlaylist, PlaylistException
 
 logger = logging.getLogger(__name__)
 
@@ -267,7 +266,7 @@ class MusicCog(commands.Cog, name='Music'):
                 except youtube_dl.DownloadError as e:
                     logging.warning(f"Error downloading video: {e}")
                     await ctx.send(
-                        "There was an error downloading your video, sorry :(.")
+                        f"Error downloading video: {e}")
                     return
                 state.playlist.append(video)
                 if embed:
@@ -410,8 +409,8 @@ class MusicCog(commands.Cog, name='Music'):
         logger.info(f'Searching for playlist "{playlist_name}"')
         playlist = self._search_for_playlist(ctx, playlist_name)
         if type(playlist) == str:
-            logger.warning(f'Error finding playlist {playlist.error_message}')
-            return await self._return_pl_search_message(ctx, playlist.error_message)
+            logger.warning(f'Error finding playlist {playlist}')
+            return await self._return_pl_search_message(ctx, playlist)
         else:
             return await self._play_playlist(ctx, playlist)
 
@@ -458,22 +457,28 @@ class MusicCog(commands.Cog, name='Music'):
     def _import_playlist(url):
         """Imports a new playlist from a spotify URL"""
         url_parse = urllib.parse.urlparse(url)
-        cleaned_url = url_parse._replace(params='')._replace(query='')._replace(fragment='')
         logger.info(f'Attempting to import playlist from {url}')
         if url_parse.netloc == 'open.spotify.com':
-            web_playlist = SpotifyPlaylist(url)
+            pl_wrapper = SpotifyPlaylist
         elif url_parse.netloc == 'soundcloud.com':
-            web_playlist = SoundCloudPlaylist(url)
+            pl_wrapper = SoundCloudPlaylist
+        elif url_parse.netloc == 'youtube.com' and url_parse.path == '/playlist':
+            pl_wrapper = YoutubePlaylist
         else:
-            logger.warning(f'Cannot download playlist from {url}')
+            logger.warning(f'Url does not match playlist netloc options')
             return f'Failed to import playlist, please check your URL. ' \
-                   f'Only spotify and soundcloud are currently supported'
+                   f'Only spotify and soundcloud and youtube are supported'
+        try:
+            web_playlist = pl_wrapper(url)
+        except PlaylistException as e:
+            logger.warning(f'{e}')
+            return e
         if web_playlist:
             logger.info(f'Adding playlist songs to database')
             web_playlist.add_songs_to_db()
             return web_playlist
         else:
-            return f'Failed to download playlist: {web_playlist.error_message}\nThis is probably a Ben problem.'
+            return f'Failed to download playlist. No tracks found at supplied URL'
 
     @commands.command(aliases=['upl'])
     async def update_playlist(self, ctx, *, playlist_name, playlist=None):

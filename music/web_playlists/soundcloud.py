@@ -17,6 +17,7 @@ class SoundCloudPlaylist(WebPlaylist):
         self.web_id = self.cleaned_url
         self.bs = self._get_beautiful_soup()
         self.tracks = self._get_tracks()
+        self.owner = self._get_owner()
         self.name = self._get_name()
         self.image_url = self._get_image_url()
 
@@ -29,6 +30,13 @@ class SoundCloudPlaylist(WebPlaylist):
         soup = bs4.BeautifulSoup(html, features='lxml')
         driver.quit()
         return soup
+
+    def _get_owner(self):
+        try:
+            _owner = self.bs.find('h2', {'class': 'soundTitle__username'}).find('a').string.strip()
+        except AttributeError:
+            _owner = ''
+        return _owner
 
     def _get_image_url(self):
         regex = r"\b((?:https?://)?(?:(?:www\.)?(?:[\da-z\.-]+)\.(?:[a-z]{2,6})|(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][" \
@@ -73,4 +81,5 @@ class SoundCloudPlaylist(WebPlaylist):
         return track_info
 
     def _get_name(self):
-        return self.bs.find('h1', {'class': 'soundTitle__title'}).find('span').string
+        _name = self.bs.find('h1', {'class': 'soundTitle__title'}).find('span').string
+        return f'{_name} - {self.owner} (SoundCloud)'

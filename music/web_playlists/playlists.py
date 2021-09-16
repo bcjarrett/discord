@@ -1,7 +1,18 @@
 from abc import ABC
 from urllib import parse
 
-from .models import Artist, ArtistSong, Playlist, PlaylistSong, Song
+from ..models import Artist, ArtistSong, Playlist, PlaylistSong, Song
+
+
+class PlaylistException(Exception):
+    def __init__(self, *args):
+        if args:
+            self.message = args[0]
+        else:
+            self.message = 'Unhandled playlist exception'
+
+    def __str__(self):
+        return f'PlaylistException: {self.message}'
 
 
 class WebPlaylist(ABC):
@@ -14,7 +25,7 @@ class WebPlaylist(ABC):
         self.image_url = ''
         self.db_playlist = None
         self.error_message = f'Could not find any tracks for {url}. Are you sure it\'s a playlist?'
-        self.tracks = []    # [(url, track_name, [artists]), ...]
+        self.tracks = []  # [(url, track_name, [artists]), ...]
 
     @property
     def song_count(self):

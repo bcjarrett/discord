@@ -4,7 +4,7 @@ import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 
 from config import conf
-from .playlists import WebPlaylist
+from .playlists import WebPlaylist, PlaylistException
 
 logger = logging.getLogger(__name__)
 
@@ -35,15 +35,16 @@ class SpotifyPlaylist(WebPlaylist):
         try:
             self.data = self.sp.playlist(self.cleaned_url)
             self.name = self.data['name']
-            self.name = f'{self.name} - {self.owner}'
-            self.uri = self.data['uri']
             self.owner = self.data['owner']['display_name']
+            self.name = f'{self.name} - {self.owner} (Spotify)'
+            self.uri = self.data['uri']
             self.web_id = self.data['id']
             self.url = self.data['external_urls']['spotify']
             self.image_url = self._parse_image_url()
             self.tracks = self._get_tracks()
         except spotipy.exceptions.SpotifyException as e:
             self.error_message = e
+            raise PlaylistException(f'Spotipy Error: {e}')
 
     @staticmethod
     def _reduce_song(song):
