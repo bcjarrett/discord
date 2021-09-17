@@ -1,6 +1,8 @@
+import logging
 import youtube_dl as ytdl
 import discord
 
+logger = logging.getLogger(__name__)
 YTDL_OPTS = {
     "default_search": "ytsearch",
     "format": "bestaudio/best",
@@ -13,17 +15,17 @@ class Video:
     """Class containing information about a particular video."""
 
     def __init__(self, url_or_search, requested_by):
+        logger.info(f'Initializing video for "{url_or_search}"')
         """Plays audio from (or searches for) a URL."""
-        with ytdl.YoutubeDL(YTDL_OPTS) as ydl:
-            video = self._get_info(url_or_search)
-            video_format = video["formats"][0]
-            self.stream_url = video_format["url"]
-            self.video_url = video["webpage_url"]
-            self.title = video["title"]
-            self.uploader = video["uploader"] if "uploader" in video else ""
-            self.thumbnail = video[
-                "thumbnail"] if "thumbnail" in video else None
-            self.requested_by = requested_by
+        video = self._get_info(url_or_search)
+        video_format = video["formats"][0]
+        self.stream_url = video_format["url"]
+        self.video_url = video["webpage_url"]
+        self.title = video["title"]
+        self.uploader = video["uploader"] if "uploader" in video else ""
+        self.thumbnail = video[
+            "thumbnail"] if "thumbnail" in video else None
+        self.requested_by = requested_by
 
     def _get_info(self, video_url):
         with ytdl.YoutubeDL(YTDL_OPTS) as ydl:

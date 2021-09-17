@@ -174,22 +174,6 @@ class MusicCog(commands.Cog, name='Music'):
             logging.info(f"Enough votes, skipping...")
             channel.guild.voice_client.stop()
 
-    def _play_song(self, client, state, song):
-        state.now_playing = song
-        state.skip_votes = set()  # clear skip votes
-        source = discord.PCMVolumeTransformer(
-            discord.FFmpegPCMAudio(song.stream_url, before_options=FFMPEG_BEFORE_OPTS), volume=state.volume)
-
-        def after_playing(err):
-            if len(state.playlist) > 0:
-                next_song = state.playlist.pop(0)
-                self._play_song(client, state, next_song)
-            else:
-                asyncio.run_coroutine_threadsafe(client.disconnect(),
-                                                 self.bot.loop)
-
-        client.play(source, after=after_playing)
-
     @commands.command(aliases=["np"])
     @commands.guild_only()
     @commands.check(audio_playing)
@@ -212,11 +196,17 @@ class MusicCog(commands.Cog, name='Music'):
         """Returns a block of text describing a given song queue."""
         if len(queue) > 0:
             message = [f"{len(queue)} songs in queue:"]
-            message += [
-                f"  {index + 1}. **{song.title}** (requested by **{song.requested_by.name}**)"
-                for (index, song) in enumerate(queue)
-            ]  # add individual songs
-            return "\n".join(message)
+            for (index, song) in enumerate(queue):
+                if type(song) == tuple:
+                    _msg = f'  {index + 1}. **{song[0]}** (requested by **{song[1]}**)'
+                else:
+                    _msg = f"  {index + 1}. **{song.title}** (requested by **{song.requested_by.name}**)"
+                message.append(_msg)
+            _resp = "\n".join(message)
+            while len(_resp) > 2000:
+                message.pop(-1)
+                _resp = "\n".join(message) + '\n  ...'
+            return _resp
         else:
             return "The play queue is empty."
 
@@ -252,9 +242,33 @@ class MusicCog(commands.Cog, name='Music'):
         else:
             raise commands.CommandError("You must use a valid index.")
 
+    def _play_song(self, client, state, song):
+        def after_playing(err):
+            if len(state.playlist) > 0:
+                next_song = state.playlist.pop(0)
+                self._play_song(client, state, next_song)
+            else:
+                asyncio.run_coroutine_threadsafe(client.disconnect(),
+                                                 self.bot.loop)
+
+        state.skip_votes = set()  # clear skip votes
+
+        if type(song) == tuple:
+            try:
+                song = Video(song[0], song[1])
+            except youtube_dl.DownloadError as e:
+                logging.warning(f"Error downloading video: {e}")
+                after_playing(e)
+
+        state.now_playing = song
+        source = discord.PCMVolumeTransformer(
+            discord.FFmpegPCMAudio(song.stream_url, before_options=FFMPEG_BEFORE_OPTS), volume=state.volume)
+
+        client.play(source, after=after_playing)
+
     @commands.command(brief="Plays audio from <url>.")
     @commands.guild_only()
-    async def play(self, ctx, *, query, embed=True, song=False):
+    async def play(self, ctx, *, query, embed=True, song=False, silent=False):
         """Plays audio or playlist hosted at <url>
         If provided input is not a URL, this will perform a youtube search and play the first result."""
 
@@ -262,18 +276,11 @@ class MusicCog(commands.Cog, name='Music'):
         state = self.get_state(ctx.guild)  # get the guild's state
 
         async def yt_search_add_to_queue():
-            try:
-                video = Video(query, ctx.author)
-            except youtube_dl.DownloadError as e:
-                logging.warning(f"Error downloading video: {e}")
-                await ctx.send(
-                    f"Error downloading video: {e}")
-                return
-            state.playlist.append(video)
-            if embed:
-                message = await ctx.send(
-                    "Added to queue.", embed=video.get_embed())
-                await self._add_reaction_controls(message)
+            _silent = silent
+            state.playlist.append((query, ctx.author.display_name))
+            if not _silent:
+                return await ctx.send(
+                    f'Added "{query}" to queue.')
 
         async def yt_search_play():
             channel = ctx.author.voice.channel
@@ -281,9 +288,9 @@ class MusicCog(commands.Cog, name='Music'):
                 video = Video(query, ctx.author)
             except youtube_dl.DownloadError as e:
                 logging.warning(f"Error downloading video: {e}")
-                await ctx.send(
+                return await ctx.send(
                     "There was an error downloading your video, sorry.")
-                return
+
             client = await channel.connect()
             self._play_song(client, state, video)
             if embed:
@@ -363,11 +370,26 @@ class MusicCog(commands.Cog, name='Music'):
         for control in CONTROLS:
             await message.add_reaction(control)
 
-    async def _add_multiple_songs(self, ctx, song_list, playlist_title, max_length=20):
-        for song in song_list[:max_length]:
-            logging.info(f'Adding {song} to the queue')
-            async with ctx.typing():
-                await self.play(ctx, url=song, embed=False, song=True)
+    async def _add_multiple_songs(self, ctx, song_list, playlist_title):
+        client = ctx.guild.voice_client
+        state = self.get_state(ctx.guild)  # get the guild's state
+
+        if client and client.channel:
+            pass
+        else:
+            if not ctx.author.voice or not ctx.author.voice.channel:
+                return await ctx.send("You need to be in a voice channel to do that.")
+            else:
+                channel = ctx.author.voice.channel
+                client = await channel.connect()
+
+        author = ctx.author.display_name
+        playlist_append = [(i, author) for i in song_list]
+        if not state.playlist:
+            first_track = playlist_append.pop(0)
+            self._play_song(client, state, first_track)
+        state.playlist += playlist_append
+        logger.info(f'Added {len(playlist_append)} tracks to the queue.')
         embed = discord.Embed(
             title=f'**{playlist_title}** added to queue')
         embed.set_footer(
