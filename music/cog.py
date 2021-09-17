@@ -188,9 +188,9 @@ class MusicCog(commands.Cog, name='Music'):
     @commands.check(audio_playing)
     async def queue(self, ctx):
         """Display the current play queue."""
-        # TODO: fails for long lists
         state = self.get_state(ctx.guild)
-        await ctx.send(self._queue_text(state.playlist))
+        message = await ctx.send(self._queue_text(state.playlist))
+        await self._add_reaction_controls(message)
 
     def _queue_text(self, queue):
         """Returns a block of text describing a given song queue."""
