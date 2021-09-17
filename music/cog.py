@@ -102,7 +102,8 @@ class MusicCog(commands.Cog, name='Music'):
         client = ctx.guild.voice_client
         self._pause_audio(client)
 
-    def _pause_audio(self, client):
+    @staticmethod
+    def _pause_audio(client):
         if client.is_paused():
             client.resume()
         else:
@@ -198,7 +199,7 @@ class MusicCog(commands.Cog, name='Music'):
             message = [f"{len(queue)} songs in queue:"]
             for (index, song) in enumerate(queue):
                 if type(song) == tuple:
-                    _msg = f'  {index + 1}. **{song[0]}** (requested by **{song[1]}**)'
+                    _msg = f'  {index + 1}. **{song[0]}** (requested by **{song[1].display_name}**)'
                 else:
                     _msg = f"  {index + 1}. **{song.title}** (requested by **{song.requested_by.name}**)"
                 message.append(_msg)
@@ -241,6 +242,27 @@ class MusicCog(commands.Cog, name='Music'):
             await ctx.send(self._queue_text(state.playlist))
         else:
             raise commands.CommandError("You must use a valid index.")
+
+    @staticmethod
+    def _parse_play_query(query):
+        url_parse = urllib.parse.urlparse(query)
+        logger.info(f'Parsing play query {query}')
+        pl_wrapper = None
+        if url_parse.netloc == 'open.spotify.com':
+            logger.info(f'Initializing spotify playlist {query}')
+            pl_wrapper = SpotifyPlaylist
+        elif url_parse.netloc == 'soundcloud.com':
+            try:
+                is_set = url_parse.path.split('/')[2] == 'sets'
+                if is_set:
+                    logger.info(f'Initializing soundcloud playlist {query}')
+                    pl_wrapper = SoundCloudPlaylist
+            except IndexError:
+                pass
+        elif url_parse.netloc == 'youtube.com' and url_parse.path == '/playlist':
+            logger.info(f'Initializing youtube playlist {query}')
+            pl_wrapper = YoutubePlaylist
+        return pl_wrapper if pl_wrapper else query
 
     def _play_song(self, client, state, song):
         def after_playing(err):
@@ -384,9 +406,9 @@ class MusicCog(commands.Cog, name='Music'):
                 channel = ctx.author.voice.channel
                 client = await channel.connect()
 
-        author = ctx.author.display_name
+        author = ctx.author
         playlist_append = [(i, author) for i in song_list]
-        if not state.playlist:
+        if not state.now_playing:
             first_track = playlist_append.pop(0)
             self._play_song(client, state, first_track)
         state.playlist += playlist_append
@@ -394,12 +416,13 @@ class MusicCog(commands.Cog, name='Music'):
         embed = discord.Embed(
             title=f'**{playlist_title}** added to queue')
         embed.set_footer(
-            text=f"Requested by {ctx.author.name}",
+            text=f"Requested by {ctx.author.display_name}",
             icon_url=ctx.author.avatar_url)
         message = await ctx.send("", embed=embed)
         await self._add_reaction_controls(message)
 
-    def _search_for_playlist(self, ctx, playlist_name):
+    @staticmethod
+    def _search_for_playlist(ctx, playlist_name):
         try:
             playlist = Playlist.get(name=playlist_name)
         except Playlist.DoesNotExist:
@@ -417,10 +440,6 @@ class MusicCog(commands.Cog, name='Music'):
                 return "\n".join(message)
         return playlist
 
-    @staticmethod
-    async def _return_pl_search_message(ctx, message):
-        return await ctx.send(message)
-
     async def _play_playlist(self, ctx, playlist, shuffle=False):
         songs = playlist.get_songs()
         logger.debug(f'Adding songs to playlist {songs}')
@@ -436,7 +455,7 @@ class MusicCog(commands.Cog, name='Music'):
         playlist = self._search_for_playlist(ctx, playlist_name)
         if type(playlist) == str:
             logger.warning(f'Error finding playlist {playlist}')
-            return await self._return_pl_search_message(ctx, playlist)
+            return await ctx.send(playlist)
         else:
             return await self._play_playlist(ctx, playlist)
 
@@ -481,27 +500,6 @@ class MusicCog(commands.Cog, name='Music'):
         else:
             return await self._import_playlist(ctx, playlist_wrapper, url, play=play)
 
-    @staticmethod
-    def _parse_play_query(query):
-        url_parse = urllib.parse.urlparse(query)
-        logger.info(f'Parsing play query {query}')
-        pl_wrapper = None
-        if url_parse.netloc == 'open.spotify.com':
-            logger.info(f'Initializing spotify playlist {query}')
-            pl_wrapper = SpotifyPlaylist
-        elif url_parse.netloc == 'soundcloud.com':
-            try:
-                is_set = url_parse.path.split('/')[2] == 'sets'
-                if is_set:
-                    logger.info(f'Initializing soundcloud playlist {query}')
-                    pl_wrapper = SoundCloudPlaylist
-            except IndexError:
-                pass
-        elif url_parse.netloc == 'youtube.com' and url_parse.path == '/playlist':
-            logger.info(f'Initializing youtube playlist {query}')
-            pl_wrapper = YoutubePlaylist
-        return pl_wrapper if pl_wrapper else query
-
     async def _import_playlist(self, ctx, play_list_wrapper, url, play=True):
         """Imports a new playlist from a spotify URL"""
         async with ctx.typing():
@@ -517,32 +515,32 @@ class MusicCog(commands.Cog, name='Music'):
             else:
                 return await ctx.send(f'Failed to download playlist. No tracks found at {url}')
 
-    @commands.command(aliases=['upl'])
-    async def update_playlist(self, ctx, *, playlist_name, playlist=None):
-        """Updates an existing playlist"""
-        playlist = self._search_for_playlist(ctx, playlist_name)
-        if type(playlist) == str:
-            return await self._return_pl_search_message(ctx, playlist)
-        else:
-            old_num_songs = len(playlist.get_songs())
-            spotify_playlist = SpotifyPlaylist(playlist.spotify_url)
-            logging.info(f'Updating {playlist.name}')
-            spotify_playlist.add_songs_to_db()
-            playlist = self._search_for_playlist(ctx, playlist_name)
-            new_num_songs = len(playlist.get_songs())
-            if old_num_songs == new_num_songs:
-                return await ctx.send(f'No new songs to import')
-            else:
-                embed = discord.Embed(
-                    title=f'Successfully imported {spotify_playlist.name}!')
-                embed.description = f'Imported {new_num_songs - old_num_songs} new songs to the database\n'
-                embed.description += f'Play your new playlist by sending the command \n?pl {spotify_playlist.name}'
-                if spotify_playlist.image_url:
-                    embed.set_image(url=spotify_playlist.image_url)
-                embed.set_footer(
-                    text=f"Requested by {ctx.author.name}",
-                    icon_url=ctx.author.avatar_url)
-                return await ctx.send('', embed=embed)
+    # @commands.command(aliases=['upl'])
+    # async def update_playlist(self, ctx, *, playlist_name, playlist=None):
+    #     """Updates an existing playlist"""
+    #     playlist = self._search_for_playlist(ctx, playlist_name)
+    #     if type(playlist) == str:
+    #         return await ctx.message(playlist)
+    #     else:
+    #         old_num_songs = len(playlist.get_songs())
+    #         spotify_playlist = SpotifyPlaylist(playlist.spotify_url)
+    #         logging.info(f'Updating {playlist.name}')
+    #         spotify_playlist.add_songs_to_db()
+    #         playlist = self._search_for_playlist(ctx, playlist_name)
+    #         new_num_songs = len(playlist.get_songs())
+    #         if old_num_songs == new_num_songs:
+    #             return await ctx.send(f'No new songs to import')
+    #         else:
+    #             embed = discord.Embed(
+    #                 title=f'Successfully imported {spotify_playlist.name}!')
+    #             embed.description = f'Imported {new_num_songs - old_num_songs} new songs to the database\n'
+    #             embed.description += f'Play your new playlist by sending the command \n?pl {spotify_playlist.name}'
+    #             if spotify_playlist.image_url:
+    #                 embed.set_image(url=spotify_playlist.image_url)
+    #             embed.set_footer(
+    #                 text=f"Requested by {ctx.author.name}",
+    #                 icon_url=ctx.author.avatar_url)
+    #             return await ctx.send('', embed=embed)
 
 
 class GuildState:

@@ -43,7 +43,7 @@ class Video:
         embed = discord.Embed(
             title=self.title, description=self.uploader, url=self.video_url)
         embed.set_footer(
-            text=f"Requested by {self.requested_by.name}",
+            text=f"Requested by {self.requested_by.display_name}",
             icon_url=self.requested_by.avatar_url)
         if self.thumbnail:
             embed.set_thumbnail(url=self.thumbnail)
