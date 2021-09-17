@@ -42,6 +42,7 @@ class PoopCog(commands.Cog, name='p00p bot core'):
 
     @commands.command()
     async def p00p(self, ctx):
+        """Squeeze one out"""
         return await self.poop(ctx)
 
     @commands.command(description='Clear p00p counter')

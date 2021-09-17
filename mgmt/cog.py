@@ -17,7 +17,7 @@ class MgmtCommandsCog(commands.Cog, name='Management Commands'):
 
     @commands.command(aliases=['restart', 'reboot', 'stop_crashing'])
     async def reset(self, ctx):
-        """Restarts the bot"""
+        """Restarts the bot. Please don't do this."""
         logger.info('Resetting bot')
         await ctx.send(reset_message)
         Reset.create(channel_id=ctx.channel.id)

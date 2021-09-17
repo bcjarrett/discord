@@ -40,7 +40,8 @@ if __name__ == '__main__':
 
 @bot.event
 async def on_ready():
-    logger.info(f'\nLogged in as: {bot.user.name} - {bot.user.id}\nVersion: {discord.__version__}\n')
+    logger.info(f'Logged in as: {bot.user.name} - {bot.user.id}')
+    logger.info(f'Version: {discord.__version__}')
     logger.info(f'Connected to {[g.name for g in bot.guilds]}')
 
     # Figure out where we want to send the "booted up" message

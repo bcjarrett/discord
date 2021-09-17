@@ -25,7 +25,7 @@ conf = Config()
 # Define attached cogs here
 conf['COGS'] = [
     'p00p',
-    'game_tracker',
+    # 'game_tracker',
     'music',
     'mgmt'
 ]
