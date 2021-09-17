@@ -15,7 +15,7 @@ from discord.ext import commands
 from config import conf
 from .models import Playlist
 from .video import Video
-from .web_playlists import SpotifyPlaylist, SoundCloudPlaylist, YoutubePlaylist, PlaylistException
+from .web_playlists import PlaylistException, SoundCloudPlaylist, SpotifyPlaylist, YoutubePlaylist
 
 logger = logging.getLogger(__name__)
 
@@ -213,7 +213,7 @@ class MusicCog(commands.Cog, name='Music'):
     @commands.command(aliases=["sq"])
     @commands.guild_only()
     @commands.check(audio_playing)
-    async def suffle_queue(self, ctx):
+    async def shuffle(self, ctx):
         """Shuffles the current song queue"""
         random.shuffle(self.get_state(ctx.guild).playlist)
         return await ctx.send('Queue Shuffled!')
@@ -364,7 +364,8 @@ class MusicCog(commands.Cog, name='Music'):
                         f"{user.mention} voted to skip ({len(state.skip_votes)}/{required_votes} votes)"
                     )
 
-    async def _add_reaction_controls(self, message):
+    @staticmethod
+    async def _add_reaction_controls(message):
         """Adds a 'control-panel' of reactions to a message that can be used to control the bot."""
         CONTROLS = ["⏮", "⏯", "⏭"]
         for control in CONTROLS:
