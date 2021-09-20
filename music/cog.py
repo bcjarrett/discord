@@ -405,9 +405,11 @@ class MusicCog(commands.Cog, name='Music'):
             else:
                 channel = ctx.author.voice.channel
                 client = await channel.connect()
+                state.now_playing = None
 
         author = ctx.author
         playlist_append = [(i, author) for i in song_list]
+        logger.info(state.now_playing)
         if not state.now_playing:
             first_track = playlist_append.pop(0)
             self._play_song(client, state, first_track)
