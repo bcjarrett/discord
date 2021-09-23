@@ -1,10 +1,11 @@
-import logging
+import logging.config
 import os
 import random
 
-# import discord
-from discord.ext import commands
+import discord
+from discord.ext import commands, tasks
 
+from config import conf
 from util import populous_channel
 from .models import Reset
 
@@ -14,6 +15,9 @@ reset_message = f'Next time I\'ll do better...'
 
 
 class MgmtCommandsCog(commands.Cog, name='Management Commands'):
+
+    def __init__(self, bot):
+        self.bot = bot
 
     @commands.command(aliases=['restart', 'reboot', 'stop_crashing'])
     async def reset(self, ctx):
@@ -33,27 +37,31 @@ class MgmtCommandsCog(commands.Cog, name='Management Commands'):
         snd = chosen.nick if chosen.nick else chosen
         await ctx.send(snd)
 
-    # @commands.command()
-    # async def check(self, ctx):
-    #     g = Reset.create(channel_id=ctx.channel.id)
-    #     channel = ctx.channel.id
-    #     await ctx.bot.get_channel(channel).send('found it')
-    #     await ctx.send(f'{1}')
-    #
-    # @commands.command()
-    # async def vcid(self, ctx):
-    #
-    #     for i in conf['VC_IDS']:
-    #         voice_channel = ctx.bot.get_channel(i)
-    #
-    #         members = voice_channel.members
-    #         member_names = '\n'.join([x.name for x in members])
-    #
-    #         embed = discord.Embed(title="{} member(s) in {}".format(len(members), voice_channel.name),
-    #                               description=member_names,
-    #                               color=discord.Color.blue())
-    #
-    #         return await ctx.send(embed=embed)
+    @commands.Cog.listener()
+    async def on_ready(self):
+        logger.info(f'Logged in as: {self.bot.user.name} - {self.bot.user.id}')
+        logger.info(f'Version: {discord.__version__}')
+        logger.info(f'Connected to {[g.name for g in self.bot.guilds]}')
+
+        try:
+            channel_id = Reset.select().order_by(Reset.added_on.desc()).first().channel_id
+            channel = self.bot.get_channel(channel_id)
+            last_msg = await channel.history().find(lambda m: m.author.id == self.bot.user.id)
+            startup_msg = 'Successfully Started Up :thumbsup:'
+            if last_msg.clean_content == reset_message:
+                await last_msg.edit(content=startup_msg)
+            else:
+                await channel.send(startup_msg)
+        except AttributeError:
+            pass
+
+    @tasks.loop(seconds=10)
+    async def update_status(self):
+        await self.bot.change_presence(activity=discord.Game(name=random.choice(conf['BOT_STATUS'])))
+
+    @update_status.before_loop
+    async def before_printer(self):
+        await self.bot.wait_until_ready()
 
 
 def setup(bot):

@@ -6,8 +6,6 @@ from discord.ext import commands
 
 from config import conf
 from database import db_setup
-from mgmt.cog import reset_message
-from mgmt.models import Reset
 
 logging.config.dictConfig(conf['LOGGING_CONFIG'])
 logger = logging.getLogger('dheads')
@@ -36,28 +34,5 @@ bot = commands.Bot(command_prefix='?',
 if __name__ == '__main__':
     for extension in conf['COGS']:
         bot.load_extension(f'{extension}.cog')
-
-
-@bot.event
-async def on_ready():
-    logger.info(f'Logged in as: {bot.user.name} - {bot.user.id}')
-    logger.info(f'Version: {discord.__version__}')
-    logger.info(f'Connected to {[g.name for g in bot.guilds]}')
-
-    # Figure out where we want to send the "booted up" message
-    try:
-        channel_id = Reset.select().order_by(Reset.added_on.desc()).first().channel_id
-        channel = bot.get_channel(channel_id)
-        last_msg = await channel.history().find(lambda m: m.author.id == bot.user.id)
-        startup_msg = 'Successfully Started Up :thumbsup:'
-        if last_msg.clean_content == reset_message:
-            await last_msg.edit(content=startup_msg)
-        else:
-            await channel.send(startup_msg)
-    except AttributeError:
-        pass
-
-    await bot.change_presence(activity=discord.Game(name="Oblivion"))
-
 
 bot.run(TOKEN, bot=True)

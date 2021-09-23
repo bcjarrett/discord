@@ -25,14 +25,13 @@ conf = Config()
 # Define attached cogs here
 conf['COGS'] = [
     'p00p',
-    # 'game_tracker',
+    'game_tracker',
     'music',
     'mgmt'
 ]
 
 # Database
 conf['DATABASE'] = 'dheads.db'
-
 conf['VC_IDS'] = [
     793590574598717449,
     813923491388194837,
@@ -41,9 +40,7 @@ conf['VC_IDS'] = [
     797624713165144124,
     818280367618261002
 ]
-
 conf['STEAM_API_URL'] = 'https://store.steampowered.com/api/appdetails?language=en&lang=en&appids='
-
 conf['LOGGING_CONFIG'] = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -79,3 +76,21 @@ conf['LOGGING_CONFIG'] = {
 conf['MAX_VOLUME'] = 250
 conf['VOTE_SKIP'] = True
 conf['VOTE_SKIP_RATIO'] = .5
+
+# Status Options
+conf['BOT_STATUS'] = [
+    'Extreme Jelking 2069',
+    'Fart Master',
+    'Furious Butt Rubbers',
+    'Hairy Pooper',
+    'Magic Muffin Tops',
+    'The Cavern of Smells',
+    'Smelly Belly',
+    'Fantasy Farts',
+    'Pie Party!',
+    'Bashful Butt Pirates',
+    'Fudge Packers EXPRESS',
+    'Barndoor Bandits',
+    'Butthole Bargain Hunter',
+    'Grundle Bundlers',
+]
