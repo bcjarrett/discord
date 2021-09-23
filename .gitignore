@@ -4,3 +4,4 @@
 /restart.bat
 *.log
 *.exe
+.cache
