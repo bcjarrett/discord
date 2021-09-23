@@ -12,7 +12,7 @@ import discord
 import youtube_dl
 from discord.ext import commands
 
-from config import conf
+from config import MAX_VOLUME, VOTE_SKIP, VOTE_SKIP_RATIO
 from .models import Playlist
 from .video import Video
 from .web_playlists import PlaylistException, SoundCloudPlaylist, SpotifyPlaylist, YoutubePlaylist
@@ -122,7 +122,7 @@ class MusicCog(commands.Cog, name='Music'):
         if volume < 0:
             volume = 0
 
-        max_vol = conf['MAX_VOLUME']
+        max_vol = MAX_VOLUME
         if max_vol > -1:  # check if max volume is set
             # clamp volume to [0, max_vol]
             if volume > max_vol:
@@ -145,7 +145,7 @@ class MusicCog(commands.Cog, name='Music'):
                 ctx.author).administrator or state.is_requester(ctx.author):
             # immediately skip if requester or admin
             client.stop()
-        elif conf["VOTE_SKIP"]:
+        elif VOTE_SKIP:
             # vote to skip song
             channel = client.channel
             self._vote_skip(channel, ctx.author)
@@ -154,7 +154,7 @@ class MusicCog(commands.Cog, name='Music'):
                 member for member in channel.members if not member.bot
             ])  # don't count bots
             required_votes = math.ceil(
-                conf["VOTE_SKIP_RATIO"] * users_in_channel)
+                VOTE_SKIP_RATIO * users_in_channel)
             await ctx.send(
                 f"{ctx.author.mention} voted to skip ({len(state.skip_votes)}/{required_votes} votes)"
             )
@@ -170,7 +170,7 @@ class MusicCog(commands.Cog, name='Music'):
             member for member in channel.members if not member.bot
         ])  # don't count bots
         if (float(len(state.skip_votes)) /
-            users_in_channel) >= conf["vote_skip_ratio"]:
+            users_in_channel) >= VOTE_SKIP_RATIO:
             # enough members have voted to skip, so skip the song
             logging.info(f"Enough votes, skipping...")
             channel.guild.voice_client.stop()
@@ -366,8 +366,7 @@ class MusicCog(commands.Cog, name='Music'):
                             0, state.now_playing
                         )  # insert current song at beginning of playlist
                         client.stop()  # skip ahead
-                elif reaction.emoji == "⏭" and conf[
-                    "vote_skip"] and user_in_channel and message.guild.voice_client and \
+                elif reaction.emoji == "⏭" and VOTE_SKIP and user_in_channel and message.guild.voice_client and \
                         message.guild.voice_client.channel:
                     # ensure that skip was pressed, that vote skipping is
                     # enabled, the user is in the channel, and that the bot is
@@ -381,7 +380,7 @@ class MusicCog(commands.Cog, name='Music'):
                         if not member.bot
                     ])  # don't count bots
                     required_votes = math.ceil(
-                        conf["vote_skip_ratio"] * users_in_channel)
+                        VOTE_SKIP_RATIO * users_in_channel)
                     await channel.send(
                         f"{user.mention} voted to skip ({len(state.skip_votes)}/{required_votes} votes)"
                     )

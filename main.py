@@ -4,10 +4,10 @@ import sys
 import discord
 from discord.ext import commands
 
-from config import conf
+from config import LOGGING_CONFIG, DISCORD_API_SECRET, COGS
 from database import db_setup
 
-logging.config.dictConfig(conf['LOGGING_CONFIG'])
+logging.config.dictConfig(LOGGING_CONFIG)
 logger = logging.getLogger('dheads')
 
 
@@ -24,15 +24,13 @@ sys.excepthook = handle_exception
 logger.info('Setting up Database')
 db_setup()
 
-TOKEN = conf['API_SECRET']
-
 bot = commands.Bot(command_prefix='?',
                    description='Keeps track of games to play among other things. \n'
                                'https://github.com/bcjarrett/discord',
                    intents=discord.Intents.all())
 
 if __name__ == '__main__':
-    for extension in conf['COGS']:
+    for extension in COGS:
         bot.load_extension(f'{extension}.cog')
 
-bot.run(TOKEN, bot=True)
+bot.run(DISCORD_API_SECRET, bot=True)

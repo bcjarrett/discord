@@ -5,7 +5,7 @@ import random
 import discord
 from discord.ext import commands, tasks
 
-from config import conf
+from config import BOT_STATUS
 from util import populous_channel
 from .models import Reset
 
@@ -18,6 +18,7 @@ class MgmtCommandsCog(commands.Cog, name='Management Commands'):
 
     def __init__(self, bot):
         self.bot = bot
+        self.update_status.start()
 
     @commands.command(aliases=['restart', 'reboot', 'stop_crashing'])
     async def reset(self, ctx):
@@ -57,7 +58,7 @@ class MgmtCommandsCog(commands.Cog, name='Management Commands'):
 
     @tasks.loop(seconds=10)
     async def update_status(self):
-        await self.bot.change_presence(activity=discord.Game(name=random.choice(conf['BOT_STATUS'])))
+        await self.bot.change_presence(activity=discord.Game(name=random.choice(BOT_STATUS)))
 
     @update_status.before_loop
     async def before_printer(self):

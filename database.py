@@ -4,25 +4,25 @@ from pydoc import locate
 
 import peewee
 
-from config import conf
+from config import COGS, DATABASE
 
 logger = logging.getLogger(__name__)
 
 
 class BaseModel(peewee.Model):
     class Meta:
-        database = peewee.SqliteDatabase(conf['DATABASE'])
+        database = peewee.SqliteDatabase(DATABASE)
 
 
 def db_setup():
     logger.info('Connecting to peewee database')
-    db = peewee.SqliteDatabase(conf['DATABASE'])
+    db = peewee.SqliteDatabase(DATABASE)
     db.connect()
 
     models = []
 
-    logger.info(f'Attaching cogs: {conf["COGS"]}')
-    for cog in conf['COGS']:
+    logger.info(f'Attaching cogs: {COGS}')
+    for cog in COGS:
         try:
             module_info = pyclbr.readmodule(f'{cog}.models')
             for i in module_info.values():

@@ -4,7 +4,7 @@ import re
 import bs4
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-
+from config import SOUNDCLOUD_BASE_URL
 from .playlists import WebPlaylist
 
 logger = logging.getLogger(__name__)
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class SoundCloudPlaylist(WebPlaylist):
     def __init__(self, url):
         super().__init__(url)
-        self.base_url = 'https://soundcloud.com'
+        self.base_url = SOUNDCLOUD_BASE_URL
         self.web_id = self.cleaned_url
         self.bs = self._get_beautiful_soup()
         self.tracks = self._get_tracks()

@@ -4,13 +4,13 @@ import re
 import aiohttp
 from bs4 import BeautifulSoup
 from dateutil import parser
-from config import conf
+from config import STEAM_API_URL
 
 headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) '
                   'Chrome/61.0.3163.100 Safari/537.36'}
 
-steam_api_url = conf['STEAM_API_URL']
+steam_api_url = STEAM_API_URL
 
 
 def content_squinch(content, content_list, length=1000):

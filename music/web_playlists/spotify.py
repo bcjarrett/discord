@@ -3,7 +3,7 @@ import logging
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 
-from config import conf
+from config import SPOTIFY_REDIRECT_URI, SPOTIFY_CLIENT_SECRET, SPOTIFY_CLIENT_ID
 from .playlists import WebPlaylist, PlaylistException
 
 logger = logging.getLogger(__name__)
@@ -25,9 +25,9 @@ class SpotifyPlaylist(WebPlaylist):
         return spotipy.Spotify(
             auth_manager=SpotifyOAuth(
                 scope=scope,
-                client_id=conf['SPOTIFY_CLIENT_ID'],
-                client_secret=conf['SPOTIFY_CLIENT_SECRET'],
-                redirect_uri=conf['SPOTIFY_REDIRECT_URI']
+                client_id=SPOTIFY_CLIENT_ID,
+                client_secret=SPOTIFY_CLIENT_SECRET,
+                redirect_uri=SPOTIFY_REDIRECT_URI
             )
         )
 
